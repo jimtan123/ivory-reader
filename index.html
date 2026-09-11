@@ -330,8 +330,12 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
         <textarea id="notation" spellcheck="false"></textarea>
         <div class="row" style="margin-top:8px">
           <button class="btn primary" id="btn-load">Load and save</button>
+          <button class="btn sm" id="btn-copy">Copy notation</button>
+          <button class="btn sm" id="btn-paste">Paste</button>
           <button class="btn danger sm" id="btn-delete">Delete this piece</button>
+          <span class="muted small" id="copy-status"></span>
         </div>
+        <p class="muted small" style="margin-top:6px">This app has more than one copy (claude.ai and your GitHub Pages install), and each keeps its own saved pieces. To move a piece between them: <b>Copy notation</b> here, open the other copy, paste into its Notation box, then <b>Load and save</b> there.</p>
         <div class="errs" id="notation-errs"></div>
         <details class="compact"><summary>Format</summary>
           <div class="notation-help" style="margin-top:8px">
@@ -791,6 +795,21 @@ $('btn-load').addEventListener('click',()=>{
   if(pieceId==='new'||pieceId==null||pieceId.startsWith('b:')){pieceId='u:'+Date.now();}
   store.pieces[pieceId]=text;save();fillPieceSelect();pieceSel.value=pieceId;applyNotation(text);
 });
+const copyStatus=$('copy-status');
+$('btn-copy').addEventListener('click',async()=>{
+  const text=notationTa.value;
+  try{await navigator.clipboard.writeText(text);copyStatus.textContent='Copied. Open the other copy and paste it in.';}
+  catch(e){
+    try{notationTa.focus();notationTa.select();const ok=document.execCommand('copy');copyStatus.textContent=ok?'Copied. Open the other copy and paste it in.':'Could not copy automatically: select the text above and copy it by hand.';}
+    catch(e2){copyStatus.textContent='Could not copy automatically: select the text above and copy it by hand.';}
+  }
+  setTimeout(()=>copyStatus.textContent='',4000);
+});
+$('btn-paste').addEventListener('click',async()=>{
+  try{const text=await navigator.clipboard.readText();if(text.trim()){notationTa.value=text;copyStatus.textContent='Pasted. Check it, then Load and save.';}else copyStatus.textContent='Clipboard was empty.';}
+  catch(e){copyStatus.textContent='Cannot read the clipboard here: tap in the box above and paste by hand (long-press, Paste).';}
+  setTimeout(()=>copyStatus.textContent='',5000);
+});
 $('btn-delete').addEventListener('click',()=>{
   if(!pieceId||pieceId.startsWith('b:')||pieceId==='new'){errsEl.textContent='Built-in pieces cannot be deleted.';return;}
   if(!confirm('Delete this piece?'))return;
@@ -976,7 +995,7 @@ btnTr.addEventListener('click',async()=>{
     if(r.rh)lines.push(`RH: ${r.rh}`);if(r.lh)lines.push(`LH: ${r.lh}`);
     notationTa.value=lines.join('\n');
     pieceId='new';$('btn-load').click();
-    aiStatus.textContent='Loaded. Check it against the page: '+(r.notes||'no doubts reported.');
+    aiStatus.textContent='Loaded. Check it against the page: '+(r.notes||'no doubts reported.')+' On your tablet? Scroll down to Copy notation and paste it into that copy.';
     aiOut.textContent='';
   }catch(e){
     const code=e&&e.code;
