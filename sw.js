@@ -1,7 +1,7 @@
 /* Ivory Reader service worker.
    Static assets are cache-first; the page itself is network-first so a new
    version arrives as soon as the tablet is online, with the cache as fallback. */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'ivory-reader-' + VERSION;
 const ASSETS = [
   './',
@@ -15,7 +15,29 @@ const ASSETS = [
   './fonts/fonts.css',
   './fonts/fraunces-500-latin.woff2',
   './fonts/source-sans-3-400-latin.woff2',
-  './fonts/noto-music-400-music.woff2'
+  './fonts/noto-music-400-music.woff2',
+  './audio/A1.mp3',
+  './audio/A2.mp3',
+  './audio/A3.mp3',
+  './audio/A4.mp3',
+  './audio/A5.mp3',
+  './audio/A6.mp3',
+  './audio/C2.mp3',
+  './audio/C3.mp3',
+  './audio/C4.mp3',
+  './audio/C5.mp3',
+  './audio/C6.mp3',
+  './audio/C7.mp3',
+  './audio/Ds2.mp3',
+  './audio/Ds3.mp3',
+  './audio/Ds4.mp3',
+  './audio/Ds5.mp3',
+  './audio/Ds6.mp3',
+  './audio/Fs2.mp3',
+  './audio/Fs3.mp3',
+  './audio/Fs4.mp3',
+  './audio/Fs5.mp3',
+  './audio/Fs6.mp3'
 ];
 
 self.addEventListener('install', e => {

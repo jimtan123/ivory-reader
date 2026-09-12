@@ -31,6 +31,12 @@ are lost if you clear the browser's data for this site.
   the next keys and waits until you play them, so you set the pace.
 - **Progress** — accuracy per note, speed, and a run history per piece.
 - **Metronome and MIDI** in the bar along the bottom.
+- **Piano sound** is a sampled grand: the [Salamander Grand Piano](https://github.com/sfzinstruments/SalamanderGrandPiano)
+  by Alexander Holm, CC BY 3.0. `audio/` holds 22 notes (A1 to C7, every minor
+  third, trimmed to 6 s, mono 64 kbps, about 1 MB); other pitches play the
+  nearest sample shifted by at most a semitone. The site fetches them and the
+  service worker caches them; the claude.ai copy has them embedded as base64.
+  Until they are decoded, or if they fail to load, the old synthesized tone plays.
 
 MIDI uses the Web MIDI API: Chrome or Edge on a computer or Android. Safari and
 iOS have no Web MIDI, so on an iPhone or iPad the on-screen keyboard is the input.

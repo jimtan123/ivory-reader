@@ -350,7 +350,7 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   <div class="score" id="score"><svg id="score-svg"></svg></div>
   <div class="pstatus"><span class="now" id="p-now"></span><span class="muted" id="p-where"></span><span class="muted" id="p-mist"></span></div>
   <div class="kbwrap"><div class="kb" id="kb-p" role="group" aria-label="Practice keyboard"></div></div>
-  <p class="muted small" style="margin-top:6px"><b>Listen</b> plays the piece at the metronome tempo. <b>Play along</b> clicks through the piece at that tempo while you play; a key within a third of a beat counts as on time, and with one hand chosen the app plays the other. <b>Wait mode</b> lights the next keys and waits until you play every one of them. Slow is the point: the tempo is yours.</p>
+  <p class="muted small" style="margin-top:6px"><b>Listen</b> plays the piece at the metronome tempo. <b>Play along</b> clicks through the piece at that tempo while you play; a key within a third of a beat counts as on time, and with one hand chosen the app plays the other. <b>Wait mode</b> lights the next keys and waits until you play every one of them. Slow is the point: the tempo is yours. Piano sound: Salamander Grand Piano by Alexander Holm, CC BY 3.0.</p>
 
   <details id="add-piece">
     <summary>Add a piece: from a photo, or by typing the notation</summary>
@@ -603,6 +603,43 @@ class Scorer{
 }
 globalThis.IvoryPlayAlong={Scorer};
 })();
+/* Ivory Reader piano sound: sampled grand piano.
+   Samples are the Salamander Grand Piano (Alexander Holm, CC BY 3.0), one
+   recording every minor third from A1 to C7; other pitches play the nearest
+   sample shifted by at most one semitone. Plain script, no DOM: the pure
+   helpers are tested in test/piano.test.mjs. Leaves one global, IvoryPiano. */
+(function(){
+'use strict';
+const SAMPLE_NAMES=['A1','C2','Ds2','Fs2','A2','C3','Ds3','Fs3','A3','C4','Ds4','Fs4','A4','C5','Ds5','Fs5','A5','C6','Ds6','Fs6','A6','C7'];
+const SEMI={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+// "Ds4" is D sharp 4: file names cannot hold a # character.
+function nameToMidi(name){const m=name.match(/^([A-G])(s?)(\d)$/);if(!m)return null;return (+m[3]+1)*12+SEMI[m[1]]+(m[2]?1:0);}
+function nearestSample(m,set){let best=set[0];for(const s of set)if(Math.abs(s-m)<Math.abs(best-m))best=s;return best;}
+const rateFor=(m,sampleMidi)=>Math.pow(2,(m-sampleMidi)/12);
+
+const player={buffers:new Map(),keys:[],ready:false,loading:null};
+// source(name) resolves to an ArrayBuffer of the mp3; the caller decides whether
+// that comes from a fetch (the site) or from embedded base64 (the claude.ai copy).
+function load(ctx,source){
+  if(player.loading)return player.loading;
+  player.loading=Promise.all(SAMPLE_NAMES.map(async name=>{
+    try{const ab=await source(name);const buf=await ctx.decodeAudioData(ab);player.buffers.set(nameToMidi(name),buf);}catch(e){}
+  })).then(()=>{player.keys=[...player.buffers.keys()].sort((a,b)=>a-b);player.ready=player.keys.length>0;return player.ready;});
+  return player.loading;
+}
+// Plays midi note m at time t for dur seconds, then a short natural release.
+// Returns false when the samples are not loaded yet so the caller can fall back.
+function noteAt(ctx,m,t,dur,dest,gain){
+  if(!player.ready)return false;
+  const s=nearestSample(m,player.keys),buf=player.buffers.get(s);
+  const src=ctx.createBufferSource();src.buffer=buf;src.playbackRate.value=rateFor(m,s);
+  const g=ctx.createGain(),v=gain==null?0.9:gain,end=t+Math.max(0.05,dur),rel=0.3;
+  g.gain.setValueAtTime(v,t);g.gain.setValueAtTime(v,end);g.gain.exponentialRampToValueAtTime(0.0001,end+rel);
+  src.connect(g);g.connect(dest||ctx.destination);src.start(t);src.stop(end+rel+0.05);
+  return true;
+}
+globalThis.IvoryPiano={SAMPLE_NAMES,nameToMidi,nearestSample,rateFor,load,noteAt,get ready(){return player.ready;},get count(){return player.keys.length;}};
+})();
 </script>
 <script>
 (function(){
@@ -635,14 +672,16 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){}}
 let ctx=null;
 function audio(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();return ctx;}
 function toneAt(m,t,dur,dest){
-  const c=audio(),f=440*Math.pow(2,(m-69)/12),g=c.createGain();
+  const c=audio();
+  if(IvoryPiano.noteAt(c,m,t,dur,dest))return;   // sampled grand; the synth below is the fallback while samples load
+  const f=440*Math.pow(2,(m-69)/12),g=c.createGain();
   g.connect(dest||c.destination);
   g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.45,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
   [[1,'triangle',0.6],[2,'sine',0.25],[3,'sine',0.08]].forEach(([h,type,amp])=>{
     const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f*h;og.gain.value=amp;o.connect(og);og.connect(g);o.start(t);o.stop(t+dur+0.05);
   });
 }
-function play(m,dur){if(!$('sound').checked)return;try{const c=audio();toneAt(m,c.currentTime,dur||1.1);}catch(e){}}
+function play(m,dur){if(!$('sound').checked)return;try{const c=audio();toneAt(m,c.currentTime,dur||1.4);}catch(e){}}
 function clickAt(t,accent,dest){
   const c=audio(),o=c.createOscillator(),g=c.createGain();
   o.type='square';o.frequency.value=accent?1400:1000;
@@ -826,6 +865,11 @@ letterBtns.forEach(b=>b.addEventListener('click',()=>{
 // ---------- notation parser: src/parse.js; play-along scoring: src/playalong.js ----------
 const {parsePiece,SHARPS,FLATS,PARTS}=IvoryParse;
 const {Scorer}=IvoryPlayAlong;
+// Piano samples: embedded base64 in the claude.ai copy, fetched from ./audio/ on the site.
+function sampleSource(name){
+  if(window.IVORY_SAMPLES&&window.IVORY_SAMPLES[name]){const bin=atob(window.IVORY_SAMPLES[name]);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return Promise.resolve(u.buffer);}
+  return fetch('./audio/'+name+'.mp3').then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();});
+}
 const PLAY_TOL=0.34; // beats either side of a note that still count as on time
 
 // ---------- score renderer ----------
@@ -1313,6 +1357,7 @@ $('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress 
 window.addEventListener('orientationchange',()=>setTimeout(()=>window.dispatchEvent(new Event('resize')),200));
 let resizeT;window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{kbClef=null;if(activeTab==='read')layoutRead();if(activeTab==='hand')layoutHand();if(activeTab==='practice')layoutPractice(true);},150);});
 buildLights();setBpm(72);
+try{IvoryPiano.load(audio(),sampleSource);}catch(e){}   // decode now; the context resumes on the first tap
 next();
 fillPieceSelect();loadPiece('b:ode');
 let startTab='read';try{startTab=localStorage.getItem(KEY+':tab')||'read';}catch(e){}

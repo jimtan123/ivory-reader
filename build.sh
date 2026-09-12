@@ -19,7 +19,14 @@ PWA_HEAD='<link rel="stylesheet" href="./fonts/fonts.css">
 
 CDN_HEAD='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&family=Noto+Music&display=swap">'
 
-modules() { printf '<script>\n'; cat src/parse.js src/playalong.js; printf '</script>\n'; }
+modules() { printf '<script>\n'; cat src/parse.js src/playalong.js src/piano.js; printf '</script>\n'; }
+
+# The claude.ai copy cannot fetch audio files, so the samples ride along as base64.
+embedded_samples() {
+  printf '<script>window.IVORY_SAMPLES={'
+  for f in audio/*.mp3; do n=$(basename "$f" .mp3); printf '"%s":"' "$n"; base64 < "$f" | tr -d '\n'; printf '",'; done
+  printf '};</script>\n'
+}
 
 # Prints src/head.html with the <!--FONTS--> line replaced by $1 (a plain loop:
 # macOS awk rejects a multi-line -v value).
@@ -55,7 +62,7 @@ SW
 mkdir -p "$(dirname "$ART")"
 {
   sub_fonts "$CDN_HEAD"
-  cat src/body.html; modules; cat src/script.html
+  cat src/body.html; embedded_samples; modules; cat src/script.html
 } > "$ART"
 
 echo "built index.html ($(wc -c < index.html) bytes) and $ART ($(wc -c < "$ART") bytes)"
