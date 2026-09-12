@@ -1,7 +1,7 @@
 /* Ivory Reader service worker.
    Static assets are cache-first; the page itself is network-first so a new
    version arrives as soon as the tablet is online, with the cache as fallback. */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'ivory-reader-' + VERSION;
 const ASSETS = [
   './',

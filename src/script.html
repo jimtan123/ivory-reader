@@ -237,6 +237,7 @@ function renderScore(svg,piece,width){
   const nSys=Math.ceil(piece.nBars/perSys);
   const H=nSys*sysH+10;
   let h='';const pos={};// id -> {x,y,part}
+  const barPos=[];// bar index -> {x,w,top,bot}: the track the playhead runs along
   const clefFor=p=>piece.handOf(p)==='RH'?'treble':'bass';
   function staffTop(sys,part){return 30+sys*sysH+(piece.handOf(part)==='LH'&&grand?LH+GAP:0);}
   function yOf(part,letter,oct,top){const c=CLEF[clefFor(part)];return top+(diaLO(c.topLO[0],c.topLO[1])-diaLO(letter,oct))*S/2;}
@@ -260,11 +261,12 @@ function renderScore(svg,piece,width){
     h+=`<text class="txt" x="${x0}" y="${topA-12}">${m0+1}</text>`;
     for(let mi=m0;mi<m1;mi++){
       const mx=x0+headW+(mi-m0)*mw;
+      const pad=14,inner=mw-pad-10;
+      barPos[mi]={x:mx+pad,w:inner,top:topA,bot:botB};
       const bx=mx+mw;h+=`<line class="ln" x1="${bx}" y1="${topA}" x2="${bx}" y2="${botB}"/>`;
       if(mi===piece.nBars-1)h+=`<line class="ln" x1="${bx-3}" y1="${topA}" x2="${bx-3}" y2="${botB}" style="stroke-width:3"/>`;
       parts.forEach(part=>{
         const top=staffTop(sys,part),bar=piece.parts[part][mi];
-        const pad=14,inner=mw-pad-10;
         const voice2=part.endsWith('2'),twoVoices=voice2||!!piece.parts[part+'2'];let tupX=null;
         bar.notes.forEach((n,ni)=>{
           const x=mx+pad+(n.start/piece.beatsPerBar)*inner;
@@ -308,8 +310,9 @@ function renderScore(svg,piece,width){
       });
     }
   }
+  h+=`<line class="playhead" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>`;
   svg.setAttribute('viewBox',`0 0 ${width} ${H}`);svg.style.height=H+'px';svg.innerHTML=h;
-  return pos;
+  return {pos,barPos};
 }
 
 // ---------- pieces library ----------
@@ -360,7 +363,7 @@ RH: E4/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q. D4/e | E4/w | F4/q F4/q F4
 LH: C3/h C3/h | C3/h C3/h | C3/h C3/h | C3/w | F3/h F3/h | C3/h C3/h | G3/h G3/h | G3/h G3/h`
 };
 const pieceSel=$('piece'),notationTa=$('notation'),errsEl=$('notation-errs'),scoreSvg=$('score-svg'),scoreBox=$('score'),kbP=$('kb-p');
-let piece=null,pieceId=null,notePos={},practiceKbRange=null;
+let piece=null,pieceId=null,notePos={},barPos=[],playheadEl=null,practiceKbRange=null;
 function pieceList(){const out=[];Object.keys(BUILTIN).forEach(id=>out.push({id,text:BUILTIN[id]}));Object.keys(store.pieces).forEach(id=>out.push({id,text:store.pieces[id]}));return out;}
 function titleOf(text){const m=text.match(/^\s*title\s*:\s*(.+)$/mi);return m?m[1].trim():'Untitled';}
 function fillPieceSelect(){
@@ -390,7 +393,7 @@ function applyNotation(text){
 function layoutPractice(force){
   if(!piece)return;
   const w=Math.max(320,scoreBox.clientWidth-10);
-  if(force||scoreSvg.dataset.w!==String(w)){scoreSvg.dataset.w=w;notePos=renderScore(scoreSvg,piece,w);if(transport.mode)highlight(transport.idx);}
+  if(force||scoreSvg.dataset.w!==String(w)){scoreSvg.dataset.w=w;const r=renderScore(scoreSvg,piece,w);notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);}
   const kw=kbP.parentElement.clientWidth;if(force||!kbP.children.length||kbP.dataset.w!==String(kw)){kbP.dataset.w=kw;buildKeyboard(kbP,practiceKbRange[0],practiceKbRange[1],{names:true,onKey:practiceKey});}
 }
 pieceSel.addEventListener('change',()=>loadPiece(pieceSel.value));
@@ -422,7 +425,22 @@ $('btn-delete').addEventListener('click',()=>{
 
 // ---------- transport: listen mode and wait mode ----------
 const transport={mode:null,idx:-1,t0:0,raf:0,mist:0,need:new Set(),got:new Set(),bus:null};
-const handsSel=$('hands'),showKeys=$('showkeys');
+const handsSel=$('hands'),showKeys=$('showkeys'),showLine=$('showline');
+// ---------- playhead: a line that rides the beat across the score ----------
+function hidePlayhead(){if(playheadEl)playheadEl.setAttribute('visibility','hidden');}
+// beat is in piece beats and may be negative during the count-in, where the line parks on bar 1.
+function movePlayhead(beat){
+  if(!playheadEl)return;
+  if(!showLine.checked){hidePlayhead();return;}
+  const bpb=piece.beatsPerBar,b=Math.max(0,Math.min(beat,piece.totalBeats));
+  const mi=Math.min(barPos.length-1,Math.floor(b/bpb)),g=barPos[mi];
+  if(!g){hidePlayhead();return;}
+  const x=g.x+Math.max(0,Math.min(1,(b-mi*bpb)/bpb))*g.w;
+  playheadEl.setAttribute('x1',x);playheadEl.setAttribute('x2',x);
+  playheadEl.setAttribute('y1',g.top-6);playheadEl.setAttribute('y2',g.bot+6);
+  playheadEl.setAttribute('visibility','visible');
+}
+showLine.addEventListener('change',()=>{if(!showLine.checked)hidePlayhead();});
 function wanted(part){const h=handsSel.value;return h==='both'||h===piece.handOf(part);}
 function activeOnsets(){return piece.onsets.map((o,i)=>({o,i})).filter(x=>x.o.items.some(it=>wanted(it.part)&&!it.n.rest&&!it.n.tiedFrom));}
 function highlight(idx){
@@ -434,7 +452,7 @@ function highlight(idx){
   const mi=Math.floor(o.beat/piece.beatsPerBar);$('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
 }
 function setNow(text,cls){const el=$('p-now');el.textContent=text;el.className='now '+(cls||'');}
-function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';}
+function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';}
 function stopAll(){
   cancelAnimationFrame(transport.raf);
   if(transport.bus){try{transport.bus.disconnect();}catch(e){}transport.bus=null;}
@@ -460,6 +478,7 @@ function startListen(){
   const acts=activeOnsets();let k=0;
   const tick=()=>{
     const beat=(c.currentTime-t0)/spb;
+    movePlayhead(beat);
     if(beat<0){setNow(`Count-in ${Math.ceil(-beat)}`);}
     else{while(k<acts.length-1&&acts[k+1].o.beat<=beat)k++;if(acts[k]&&transport.idx!==acts[k].i){transport.idx=acts[k].i;highlight(transport.idx);setNow('Listening');}}
     if(beat>piece.totalBeats+1){stopAll();setNow('Done');return;}
@@ -493,6 +512,7 @@ function startPlayAlong(){
   $('btn-play').textContent='Stop';
   const tick=()=>{
     const beat=(c.currentTime-t0)/spb,sc=transport.scorer;
+    movePlayhead(beat);
     sc.update(beat);
     const next=sc.next();
     if(next){const i=idxOfBeat.get(next.beat);if(i!==undefined&&transport.idx!==i){transport.idx=i;highlight(i);lightWanted(next);}}
