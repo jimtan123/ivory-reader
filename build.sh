@@ -19,7 +19,15 @@ PWA_HEAD='<link rel="stylesheet" href="./fonts/fonts.css">
 
 CDN_HEAD='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&family=Noto+Music&display=swap">'
 
-sub_fonts() { awk -v repl="$1" '{ if ($0 == "<!--FONTS-->") print repl; else print }' src/head.html; }
+modules() { printf '<script>\n'; cat src/parse.js src/playalong.js; printf '</script>\n'; }
+
+# Prints src/head.html with the <!--FONTS--> line replaced by $1 (a plain loop:
+# macOS awk rejects a multi-line -v value).
+sub_fonts() {
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$line" = "<!--FONTS-->" ]; then printf '%s\n' "$1"; else printf '%s\n' "$line"; fi
+  done < src/head.html
+}
 
 # --- PWA build ---
 {
@@ -30,7 +38,7 @@ sub_fonts() { awk -v repl="$1" '{ if ($0 == "<!--FONTS-->") print repl; else pri
   printf '<meta name="apple-mobile-web-app-status-bar-style" content="default">\n'
   sub_fonts "$PWA_HEAD"
   printf '</head>\n<body>\n'
-  cat src/body.html src/script.html
+  cat src/body.html; modules; cat src/script.html
   cat <<'SW'
 <script>
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
@@ -47,7 +55,7 @@ SW
 mkdir -p "$(dirname "$ART")"
 {
   sub_fonts "$CDN_HEAD"
-  cat src/body.html src/script.html
+  cat src/body.html; modules; cat src/script.html
 } > "$ART"
 
 echo "built index.html ($(wc -c < index.html) bytes) and $ART ($(wc -c < "$ART") bytes)"

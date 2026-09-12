@@ -25,8 +25,10 @@ are lost if you clear the browser's data for this site.
 - **Hand position** — C, Middle C and G positions with a finger number on every
   key, a posture checklist, and a drill that asks which finger plays a note.
 - **Practice** — pieces on a grand staff. **Listen** plays at the metronome
-  tempo with a count-in. **Wait mode** lights the next keys and waits until you
-  play them, so you set the pace.
+  tempo with a count-in. **Play along** clicks through the piece at that tempo
+  while you play and scores each note: on time within a third of a beat, missed,
+  or wrong; with one hand selected the app plays the other. **Wait mode** lights
+  the next keys and waits until you play them, so you set the pace.
 - **Progress** — accuracy per note, speed, and a run history per piece.
 - **Metronome and MIDI** in the bar along the bottom.
 
@@ -50,6 +52,13 @@ Pitch is a letter, an optional `#`, `b` or `n`, then the octave, where middle C
 is `C4`. Length is `w` `h` `q` `e` `s`, dotted with `.`. A rest is `r/q`, a
 chord is `[C4 E4 G4]/h`, a tie is `C4/h~`, and `|` separates bars.
 
+A tuplet is the count, then the notes in round brackets: `3(C4/e D4/e E4/e)`
+is three eighths in the time of two (`5(...)` is five in the time of four).
+A second voice on the same staff, such as a note held under a moving line, goes
+on its own line, `RH2:` or `LH2:`, with the same number of bars and rests where
+it is silent. Lines starting with `#` are ignored, so a piece can carry notes
+to itself.
+
 ## The two copies
 
 There is a second copy of this app published on claude.ai. That one can
@@ -63,7 +72,14 @@ in one, then paste into the other's Notation box and press **Load and save**.
 ## Building
 
 `src/` holds the source; both copies are generated from it, so edit `src/` and
-never `index.html` directly.
+never `index.html` directly. `src/parse.js` (the notation parser) and
+`src/playalong.js` (the play-along scorer) are plain scripts that the build
+inlines ahead of `src/script.html`; they have no DOM dependency so the tests can
+load them directly:
+
+```sh
+node --test test/*.test.mjs
+```
 
 ```sh
 ./build.sh                      # writes index.html and dist/artifact.html

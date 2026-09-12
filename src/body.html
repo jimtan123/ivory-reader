@@ -85,13 +85,14 @@
     <label><input type="checkbox" id="countin" checked> Count-in</label>
     <span class="row" style="margin-left:auto">
       <button class="btn" id="btn-listen">Listen</button>
+      <button class="btn" id="btn-play">Play along</button>
       <button class="btn primary" id="btn-wait">Wait mode</button>
     </span>
   </div>
   <div class="score" id="score"><svg id="score-svg"></svg></div>
   <div class="pstatus"><span class="now" id="p-now"></span><span class="muted" id="p-where"></span><span class="muted" id="p-mist"></span></div>
   <div class="kbwrap"><div class="kb" id="kb-p" role="group" aria-label="Practice keyboard"></div></div>
-  <p class="muted small" style="margin-top:6px"><b>Listen</b> plays the piece at the metronome tempo. <b>Wait mode</b> lights the next keys and waits until you play every one of them, on your piano over MIDI or on the screen. Slow is the point: the tempo is yours.</p>
+  <p class="muted small" style="margin-top:6px"><b>Listen</b> plays the piece at the metronome tempo. <b>Play along</b> clicks through the piece at that tempo while you play; a key within a third of a beat counts as on time, and with one hand chosen the app plays the other. <b>Wait mode</b> lights the next keys and waits until you play every one of them. Slow is the point: the tempo is yours.</p>
 
   <details id="add-piece">
     <summary>Add a piece: from a photo, or by typing the notation</summary>
@@ -127,7 +128,7 @@
             <p>One line per setting, then one line per hand. Measures are separated by <code>|</code>.</p>
             <p><code>title: Ode to Joy</code> <code>time: 4/4</code> <code>key: C</code> <code>tempo: 72</code></p>
             <p><code>RH: E4/q E4/q F4/q G4/q | G4/q F4/q E4/q D4/q</code></p>
-            <p>Note = pitch/length. Pitch: letter, optional <code>#</code> or <code>b</code>, octave (middle C is <code>C4</code>). Length: <code>w</code> whole, <code>h</code> half, <code>q</code> quarter, <code>e</code> eighth, <code>s</code> sixteenth, add <code>.</code> for dotted. Rest: <code>r/q</code>. Chord: <code>[C4 E4 G4]/h</code>. Tie to the next note: <code>C4/h~</code>. Notes without an accidental follow the key signature; write <code>n</code> for a natural, as in <code>F4n</code>.</p>
+            <p>Note = pitch/length. Pitch: letter, optional <code>#</code> or <code>b</code>, octave (middle C is <code>C4</code>). Length: <code>w</code> whole, <code>h</code> half, <code>q</code> quarter, <code>e</code> eighth, <code>s</code> sixteenth, add <code>.</code> for dotted. Rest: <code>r/q</code>. Chord: <code>[C4 E4 G4]/h</code>. Tie to the next note: <code>C4/h~</code>. Notes without an accidental follow the key signature; write <code>n</code> for a natural, as in <code>F4n</code>. Triplet: <code>3(C4/e D4/e E4/e)</code>, three in the time of two. A second voice on the same staff, such as a note held under a moving line, goes on its own line, <code>RH2:</code> or <code>LH2:</code>, with the same bars and rests where it is silent.</p>
           </div>
         </details>
       </div>
