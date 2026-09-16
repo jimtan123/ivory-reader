@@ -624,6 +624,76 @@ async function connectMidi(){
 midiBtn.addEventListener('click',connectMidi);
 if(!navigator.requestMIDIAccess){midiStatus('No MIDI in this browser','err');}
 
+// ---------- mic pitch detection (Read notes flashcards, single note at a time) ----------
+const micPill=$('mic-pill'),micBtn=$('mic-btn');
+let micStream=null,micAnalyser=null,micBuf=null,micLoopId=null;
+let micArmed=true,micStableNote=null,micStableCount=0;
+const MIC_SILENCE_RMS=0.015,MIC_MIN_CONF=0.85,MIC_STABLE_FRAMES=3,MIC_MIN_HZ=55,MIC_MAX_HZ=1050;
+function micStatus(text,cls){micPill.textContent=text;micPill.className='pill '+(cls||'');}
+function freqToMidi(f){return Math.round(69+12*Math.log2(f/440));}
+// Autocorrelation pitch detection, restricted to the piano-ish frequency range so the
+// per-frame cost stays small enough to run continuously in the browser.
+function detectPitch(buf,sampleRate){
+  const SIZE=buf.length;
+  let rms=0;for(let i=0;i<SIZE;i++)rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/SIZE);
+  if(rms<MIC_SILENCE_RMS)return null;
+  let c0=0;for(let i=0;i<SIZE;i++)c0+=buf[i]*buf[i];
+  if(c0===0)return null;
+  const corr=lag=>{let s=0;for(let i=0;i<SIZE-lag;i++)s+=buf[i]*buf[i+lag];return s;};
+  const minLag=Math.max(1,Math.floor(sampleRate/MIC_MAX_HZ)),maxLag=Math.min(SIZE-2,Math.ceil(sampleRate/MIC_MIN_HZ));
+  let best=-Infinity,bestLag=-1;
+  for(let lag=minLag;lag<=maxLag;lag++){const s=corr(lag);if(s>best){best=s;bestLag=lag;}}
+  if(bestLag<0||best/c0<MIC_MIN_CONF)return null;
+  let T0=bestLag;
+  if(bestLag>minLag&&bestLag<maxLag){
+    const x1=corr(bestLag-1),x2=best,x3=corr(bestLag+1),a=(x1+x3-2*x2)/2,b=(x3-x1)/2;
+    if(a)T0=bestLag-b/(2*a);
+  }
+  return sampleRate/T0;
+}
+function micNoteOn(m){
+  if(activeTab!=='read')return;
+  const el=keyEl(kb,m);if(el)flash(el,'down',160);
+  answerKey(m,'mic');
+}
+function micTick(){
+  if(!micAnalyser||activeTab!=='read')return;
+  micAnalyser.getFloatTimeDomainData(micBuf);
+  const freq=detectPitch(micBuf,ctx.sampleRate);
+  if(freq==null){micArmed=true;micStableNote=null;micStableCount=0;return;}
+  const m=freqToMidi(freq);
+  micStableCount=(m===micStableNote)?micStableCount+1:1;
+  micStableNote=m;
+  if(micArmed&&micStableCount>=MIC_STABLE_FRAMES){micArmed=false;micNoteOn(m);}
+}
+function stopMic(){
+  if(micLoopId)clearInterval(micLoopId);micLoopId=null;
+  if(micStream)micStream.getTracks().forEach(t=>t.stop());micStream=null;
+  micAnalyser=null;micBuf=null;
+  micStatus('Mic off','');micBtn.textContent='Listen with mic';
+}
+async function connectMic(){
+  if(micStream){stopMic();return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){micStatus('No mic in this browser','err');return;}
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  }catch(e){
+    const msg=String(e&&e.name||e);
+    micStatus(msg.includes('NotAllowed')?'Microphone permission refused':'Microphone unavailable','err');
+    return;
+  }
+  const c=audio(),src=c.createMediaStreamSource(micStream);
+  micAnalyser=c.createAnalyser();micAnalyser.fftSize=2048;
+  micBuf=new Float32Array(micAnalyser.fftSize);
+  src.connect(micAnalyser);
+  micArmed=true;micStableNote=null;micStableCount=0;
+  micLoopId=setInterval(micTick,60);
+  micStatus('Listening','on');micBtn.textContent='Stop mic';
+}
+micBtn.addEventListener('click',connectMic);
+if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){micStatus('No mic in this browser','err');micBtn.disabled=true;}
+
 // ---------- photo transcription (claude.ai only) ----------
 const photoIn=$('photo-in'),photoPrev=$('photo-prev'),btnTr=$('btn-transcribe'),aiStatus=$('ai-status'),aiOut=$('ai-out');
 let sampleFn=null,photoFile=null;
