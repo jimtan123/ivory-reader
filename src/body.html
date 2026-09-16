@@ -14,17 +14,21 @@
 <!-- READ -->
 <section class="panel active" id="panel-read">
   <div class="controls">
-    <label>Clef <select id="clef"><option value="treble">Treble only</option><option value="bass">Bass only</option><option value="both" selected>Both</option></select></label>
+    <label>Hands <select id="handsmode"><option value="1" selected>One hand</option><option value="2">Both hands together</option></select></label>
+    <label id="clef-label">Clef <select id="clef"><option value="treble">Treble only</option><option value="bass">Bass only</option><option value="both" selected>Both</option></select></label>
     <label>Range <select id="range"><option value="staff">Inside the staff</option><option value="ledger">With ledger lines</option></select></label>
     <label><input type="checkbox" id="names" checked> Key names</label>
-    <span class="row" style="margin-left:auto"><span class="pill" id="mic-pill">Mic off</span><button class="btn sm" id="mic-btn">Listen with mic</button></span>
+    <span class="row" style="margin-left:auto" id="mic-row"><span class="pill" id="mic-pill">Mic off</span><button class="btn sm" id="mic-btn">Listen with mic</button></span>
   </div>
   <div class="card read-grid">
-    <div class="staffbox"><svg class="staff" id="staff" viewBox="0 0 300 132" role="img" aria-label="Staff showing the note to identify"></svg></div>
+    <div class="staffbox">
+      <svg class="staff" id="staff" viewBox="0 0 300 132" role="img" aria-label="Staff showing the note to identify"></svg>
+      <svg class="staff staff-off" id="staff2" viewBox="0 0 300 210" role="img" aria-label="Grand staff showing the right-hand and left-hand notes to play together"></svg>
+    </div>
     <div class="side">
       <div class="feedback" id="feedback"><span class="hint">Find this note on the keyboard, or play it on your piano.</span></div>
       <div class="statline"><span>This session <b id="s-count">0</b></span><span>Correct <b id="s-acc">–</b></span><span>Streak <b id="s-streak">0</b></span><span>Speed <b id="s-time">–</b></span></div>
-      <div class="keyhint">Computer keys <kbd>A</kbd> to <kbd>G</kbd> answer by letter. Any key moves on after a mistake. <b>Listen with mic</b> answers by playing the note on a real piano, one note at a time, in a quiet room.</div>
+      <div class="keyhint" id="read-keyhint">Computer keys <kbd>A</kbd> to <kbd>G</kbd> answer by letter. Any key moves on after a mistake. <b>Listen with mic</b> answers by playing the note on a real piano, one note at a time, in a quiet room.</div>
     </div>
     <div class="letters" id="letters" role="group" aria-label="Answer with the note name">
       <button data-l="C">C</button><button data-l="D">D</button><button data-l="E">E</button><button data-l="F">F</button><button data-l="G">G</button><button data-l="A">A</button><button data-l="B">B</button>
