@@ -111,6 +111,9 @@ function showTab(name){
   activeTab=name;
   tabs.forEach(t=>t.setAttribute('aria-selected',String(t.dataset.tab===name)));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+name));
+  // While practicing a song the page holds still: no scroll, no bounce, so a
+  // stray touch near an edge never shifts the keyboard out from under a hand.
+  document.body.classList.toggle('lock-scroll',name==='practice');
   if(name==='read')layoutRead();if(name==='hand')layoutHand();if(name==='practice')layoutPractice();if(name==='progress')renderProgress();
   try{localStorage.setItem(KEY+':tab',name);}catch(e){}
 }

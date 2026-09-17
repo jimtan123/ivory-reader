@@ -225,6 +225,25 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   details.compact{margin-top:8px}
 }
 :fullscreen body,:-webkit-full-screen body{background:var(--bg)}
+/* practice lock: the page holds at exactly one screen with no scroll while
+   practicing a song. The keyboard and controls keep their natural height;
+   only the sheet music (already its own internally-scrolling box) flexes to
+   take whatever's left, so nothing is ever clipped off-screen. Gated to
+   screens tall enough to fit the keyboard at full height plus the rest of
+   the practice UI; a short screen (a phone in landscape) keeps ordinary
+   scrolling instead, so the keyboard can never end up clipped off-screen. */
+@media (min-height: 480px){
+  body.lock-scroll{overflow:hidden}
+  body.lock-scroll,body.lock-scroll .app{height:100dvh}
+  body.lock-scroll .app{overflow:hidden}
+  body.lock-scroll main{overflow:hidden;min-height:0}
+  body.lock-scroll #panel-practice.active{display:flex;flex-direction:column;height:100%;min-height:0}
+  body.lock-scroll #panel-practice.active>.controls,
+  body.lock-scroll #panel-practice.active>.pstatus,
+  body.lock-scroll #panel-practice.active>.kbwrap{flex:0 0 auto}
+  body.lock-scroll #panel-practice.active>.score{flex:1 1 auto;min-height:70px;max-height:none}
+  body.lock-scroll #panel-practice.active>details{display:none}
+}
 /* focus mode: hide secondary chrome and give the keyboard more room */
 .app.focus h1 small,.app.focus #mic-row,.app.focus details.compact{display:none}
 .app.focus header.top{padding-block:6px 4px}
