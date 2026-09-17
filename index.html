@@ -201,14 +201,18 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
    touchscreen tablet in landscape (both match), the tablet block's taller,
    more specific .kb height wins the cascade instead of this general one. */
 @media (pointer: coarse){
-  .kb{height:190px}
-  .kb .w{font-size:13px}
+  /* Keys need to be tall enough for a whole hand to rest across them, thumb to
+     middle finger, the way a real piano key is much deeper than it is wide. */
+  .kb{height:260px}
+  .kb .w{font-size:13px;padding-bottom:14px}
   .keyhint{display:none}
   .btn{padding:10px 16px}
   .dock .bpm .btn{padding:8px 14px}
   nav button{padding:10px 14px}
 }
-/* landscape tablet: one screen, no scrolling to reach the keyboard */
+/* landscape tablet: one screen, no scrolling to reach the keyboard.
+   The score is capped tighter here (vs. the old 40vh) so a much taller
+   keyboard still fits in one screen alongside it. */
 @media (orientation: landscape) and (min-width: 640px){
   :root{--gx:20px}
   @supports (padding: max(0px)){:root{--gx:max(20px, env(safe-area-inset-left))}}
@@ -227,10 +231,10 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   .read-grid .staffbox{grid-row:1}
   .read-grid .side{grid-row:1;display:flex;flex-direction:column;gap:8px}
   .read-grid .kbwrap{grid-column:1 / -1}
-  .kb{height:210px}
+  .kb{height:320px}
   svg.staff{max-width:320px}
-  .feedback{min-height:60px}
-  .score{max-height:40vh}
+  .feedback{min-height:48px}
+  .score{max-height:26vh}
   .two{gap:12px}
   .card{padding:12px 14px}
   details.compact{margin-top:8px}
@@ -239,14 +243,15 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
 /* focus mode: hide secondary chrome and give the keyboard more room */
 .app.focus h1 small,.app.focus #mic-row,.app.focus details.compact{display:none}
 .app.focus header.top{padding-block:6px 4px}
-.app.focus .kb{height:230px}
+.app.focus .score{max-height:18vh}
+.app.focus .kb{height:360px}
 @media (max-width: 760px) and (orientation: portrait){
-  .app.focus .kb{height:170px}
+  .app.focus .kb{height:190px}
 }
 /* Phone portrait: fit the staff, the answer row and the keys above the metronome bar.
    Placed after the coarse-pointer block so it wins on a phone, which is both. */
 @media (max-width: 760px) and (orientation: portrait){
-  .kb{height:136px}
+  .kb{height:160px}
   .keyhint{display:none}
   .card{padding:12px}
   h1{font-size:24px}
@@ -368,7 +373,10 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   <div class="score" id="score"><svg id="score-svg"></svg></div>
   <div class="pstatus"><span class="now" id="p-now"></span><span class="muted" id="p-where"></span><span class="muted" id="p-mist"></span></div>
   <div class="kbwrap"><div class="kb" id="kb-p" role="group" aria-label="Practice keyboard"></div></div>
-  <p class="muted small" style="margin-top:6px"><b>Listen</b> plays the piece at the metronome tempo. <b>Play along</b> clicks through the piece at that tempo while you play; a key within a third of a beat counts as on time, and with one hand chosen the app plays the other. <b>Wait mode</b> lights the next keys and waits until you play every one of them. <b>Moving line</b> draws a line that rides the beat across the score in Listen and Play along; Wait mode has no clock, so it has no line. Slow is the point: the tempo is yours. Piano sound: Salamander Grand Piano by Alexander Holm, CC BY 3.0.</p>
+  <details class="compact">
+    <summary>How Listen, Play along and Wait mode differ</summary>
+    <p class="muted small" style="margin-top:8px"><b>Listen</b> plays the piece at the metronome tempo. <b>Play along</b> clicks through the piece at that tempo while you play; a key within a third of a beat counts as on time, and with one hand chosen the app plays the other. <b>Wait mode</b> lights the next keys and waits until you play every one of them. <b>Moving line</b> draws a line that rides the beat across the score in Listen and Play along; Wait mode has no clock, so it has no line. Slow is the point: the tempo is yours. Piano sound: Salamander Grand Piano by Alexander Holm, CC BY 3.0.</p>
+  </details>
 
   <details id="add-piece">
     <summary>Add a piece: from a photo, or by typing the notation</summary>
