@@ -83,6 +83,7 @@ textarea{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;widt
 /* staff (flashcards) */
 .staffbox{display:flex;justify-content:center;padding-block:4px}
 svg.staff{width:100%;max-width:420px;height:auto;display:block}
+svg.staff.staff-off{display:none}
 svg .ln{stroke:var(--ink);stroke-width:1.2}
 svg .clef,svg .glyph{font-family:var(--font-music);fill:var(--ink)}
 svg .note{fill:var(--ink)}
@@ -273,16 +274,21 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
 <!-- READ -->
 <section class="panel active" id="panel-read">
   <div class="controls">
-    <label>Clef <select id="clef"><option value="treble">Treble only</option><option value="bass">Bass only</option><option value="both" selected>Both</option></select></label>
+    <label>Hands <select id="handsmode"><option value="1" selected>One hand</option><option value="2">Both hands together</option></select></label>
+    <label id="clef-label">Clef <select id="clef"><option value="treble">Treble only</option><option value="bass">Bass only</option><option value="both" selected>Both</option></select></label>
     <label>Range <select id="range"><option value="staff">Inside the staff</option><option value="ledger">With ledger lines</option></select></label>
     <label><input type="checkbox" id="names" checked> Key names</label>
+    <span class="row" style="margin-left:auto" id="mic-row"><span class="pill" id="mic-pill">Mic off</span><button class="btn sm" id="mic-btn">Listen with mic</button></span>
   </div>
   <div class="card read-grid">
-    <div class="staffbox"><svg class="staff" id="staff" viewBox="0 0 300 132" role="img" aria-label="Staff showing the note to identify"></svg></div>
+    <div class="staffbox">
+      <svg class="staff" id="staff" viewBox="0 0 300 132" role="img" aria-label="Staff showing the note to identify"></svg>
+      <svg class="staff staff-off" id="staff2" viewBox="0 0 300 210" role="img" aria-label="Grand staff showing the right-hand and left-hand notes to play together"></svg>
+    </div>
     <div class="side">
       <div class="feedback" id="feedback"><span class="hint">Find this note on the keyboard, or play it on your piano.</span></div>
       <div class="statline"><span>This session <b id="s-count">0</b></span><span>Correct <b id="s-acc">–</b></span><span>Streak <b id="s-streak">0</b></span><span>Speed <b id="s-time">–</b></span></div>
-      <div class="keyhint">Computer keys <kbd>A</kbd> to <kbd>G</kbd> answer by letter. Any key moves on after a mistake.</div>
+      <div class="keyhint" id="read-keyhint">Computer keys <kbd>A</kbd> to <kbd>G</kbd> answer by letter. Any key moves on after a mistake. <b>Listen with mic</b> answers by playing the note on a real piano, one note at a time, in a quiet room.</div>
     </div>
     <div class="letters" id="letters" role="group" aria-label="Answer with the note name">
       <button data-l="C">C</button><button data-l="D">D</button><button data-l="E">E</button><button data-l="F">F</button><button data-l="G">G</button><button data-l="A">A</button><button data-l="B">B</button>
@@ -707,6 +713,23 @@ function drawStaff(svg,clefName,note){
   }
   svg.innerHTML=h;
 }
+// Grand staff for the two-hands-together drill: a treble note and a bass note, played at once.
+function drawGrandStaff(svg,tNote,bNote){
+  const S=10,left=16,width=268,gap=40,topT=30,topB=topT+4*S+gap;
+  let h='';
+  [['treble',topT,tNote],['bass',topB,bNote]].forEach(([clefName,top,note])=>{
+    const c=CLEF[clefName];
+    for(let i=0;i<5;i++){const y=top+i*S;h+=`<line class="ln" x1="${left}" y1="${y}" x2="${left+width}" y2="${y}"/>`;}
+    h+=`<text class="clef" x="${left+6}" y="${top+c.line*S}" font-size="${Math.round(c.size*S/12)}">${c.glyph}</text>`;
+    const x=190,y=top+(dia(c.top)-dia(note))*S/2;
+    for(let ly=top-S;ly>=y-1;ly-=S)h+=`<line class="ln" x1="${x-13}" y1="${ly}" x2="${x+13}" y2="${ly}"/>`;
+    for(let ly=top+5*S;ly<=y+1;ly+=S)h+=`<line class="ln" x1="${x-13}" y1="${ly}" x2="${x+13}" y2="${ly}"/>`;
+    const up=y>top+2*S;
+    h+=`<ellipse class="note" cx="${x}" cy="${y}" rx="6" ry="4.2" transform="rotate(-20 ${x} ${y})"/>`;
+    h+=up?`<line class="stem" x1="${x+5.4}" y1="${y-1}" x2="${x+5.4}" y2="${y-2.8*S}"/>`:`<line class="stem" x1="${x-5.4}" y1="${y+1}" x2="${x-5.4}" y2="${y+2.8*S}"/>`;
+  });
+  svg.innerHTML=h;
+}
 
 // ---------- keyboard ----------
 function buildKeyboard(el,lo,hi,opts){
@@ -743,7 +766,8 @@ function showTab(name){
 tabs.forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
 
 // ---------- reading drill ----------
-const clefSel=$('clef'),rangeSel=$('range'),namesChk=$('names'),staff=$('staff'),fb=$('feedback'),kb=$('kb');
+const clefSel=$('clef'),rangeSel=$('range'),namesChk=$('names'),staff=$('staff'),staff2=$('staff2'),fb=$('feedback'),kb=$('kb');
+const handsModeSel=$('handsmode'),clefLabel=$('clef-label'),micRow=$('mic-row'),lettersEl=$('letters'),readKeyhint=$('read-keyhint');
 let q=null,locked=false,lastNote=null,session={n:0,ok:0,streak:0,times:[]},kbClef=null,advanceTimer=null;
 function stat(m,clef){return store.notes[clef+':'+m]||{ok:0,n:0,recent:[]};}
 function weight(m,clef){const s=stat(m,clef);const miss=s.recent.filter(x=>!x).length;return 1+miss*3+(s.n===0?1:0);}
@@ -761,10 +785,20 @@ function drillRange(clef){
   return [start,end];
 }
 function layoutRead(){
+  if(handsModeSel.value==='2'){
+    if(!q2)return;
+    const key='both:'+rangeSel.value;
+    if(kbClef!==key||!kb.children.length){
+      kbClef=key;const rT=drillRange('treble'),rB=drillRange('bass');
+      buildKeyboard(kb,rB[0],rT[1],{names:namesChk.checked,onKey:answerKey2});
+    }
+    return;
+  }
   if(!q)return;
   const key=q.clef+':'+rangeSel.value;
   if(kbClef!==key||!kb.children.length){kbClef=key;const r=drillRange(q.clef);buildKeyboard(kb,r[0],r[1],{names:namesChk.checked,onKey:answerKey});}
 }
+function nextRead(){if(handsModeSel.value==='2')next2();else next();}
 function next(){
   clearTimeout(advanceTimer);
   q=pick();lastNote=q;locked=false;q.t=performance.now();
@@ -808,13 +842,85 @@ document.addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey)return;
   const tag=(e.target.tagName||'').toLowerCase();if(tag==='select'||tag==='input'||tag==='textarea')return;
   if(activeTab==='read'){
+    if(handsModeSel.value==='2'){if(locked2&&fb.classList.contains('bad'))next2();return;}
     if(locked){if(q&&fb.classList.contains('bad'))next();return;}
     const L=e.key.toUpperCase();if(LETTERS.includes(L)){answerLetter(L);e.preventDefault();}
   }else if(activeTab==='hand'){if(/^[1-5]$/.test(e.key))fdAnswer(+e.key);}
   else if(activeTab==='practice'){if(e.key===' '){e.preventDefault();if(transport.mode)stopAll();else startWait();}}
 });
-[clefSel,rangeSel].forEach(s=>s.addEventListener('change',()=>{kbClef=null;next();}));
+[clefSel,rangeSel].forEach(s=>s.addEventListener('change',()=>{kbClef=null;nextRead();}));
 namesChk.addEventListener('change',()=>{kbClef=null;layoutRead();});
+
+// ---------- reading drill: both hands together (a treble note + a bass note, played at once) ----------
+let q2=null,locked2=false,lastNote2=null,hits2=new Set();
+function pickSide(clef){
+  const cands=POOL[clef][rangeSel.value].map(m=>({m,w:weight(m,clef)}));
+  let r=Math.random()*cands.reduce((a,c)=>a+c.w,0);
+  for(const c of cands){r-=c.w;if(r<=0)return c.m;}
+  return cands[cands.length-1].m;
+}
+function pick2(){
+  let t,b;
+  do{t=pickSide('treble');b=pickSide('bass');}while(t===b||(lastNote2&&t===lastNote2.t&&b===lastNote2.b));
+  return {t,b};
+}
+function next2(){
+  clearTimeout(advanceTimer);
+  const p=pick2();q2={t:p.t,b:p.b,t0:performance.now()};lastNote2=p;locked2=false;hits2=new Set();
+  drawGrandStaff(staff2,q2.t,q2.b);
+  fb.className='feedback';fb.innerHTML='<span class="hint">Grand staff. Play both notes together, either hand first.</span>';
+  layoutRead();
+  kb.querySelectorAll('.good,.bad').forEach(k=>k.classList.remove('good','bad'));
+}
+function record2(ok){
+  [['treble',q2.t],['bass',q2.b]].forEach(([clef,m])=>{
+    const key=clef+':'+m,s=store.notes[key]||{ok:0,n:0,recent:[]};
+    s.n++;if(ok)s.ok++;s.recent.push(ok?1:0);if(s.recent.length>10)s.recent.shift();store.notes[key]=s;
+  });
+  const dt=Math.round(performance.now()-q2.t0);
+  store.log.push({m:q2.t,c:'treble',ok:ok?1:0,ms:dt,at:Date.now()});
+  store.log.push({m:q2.b,c:'bass',ok:ok?1:0,ms:dt,at:Date.now()});
+  while(store.log.length>2000)store.log.shift();
+  save();
+  session.n++;if(ok){session.ok++;session.streak++;session.times.push(dt);}else session.streak=0;
+  $('s-count').textContent=session.n;$('s-acc').textContent=Math.round(100*session.ok/session.n)+'%';$('s-streak').textContent=session.streak;
+  if(session.times.length){const last=session.times.slice(-10);$('s-time').textContent=(last.reduce((a,b)=>a+b,0)/last.length/1000).toFixed(1)+'s';}
+}
+function answerKey2(m,source){
+  if(!q2)return;
+  if(locked2){if(fb.classList.contains('bad'))next2();return;}
+  if(m===q2.t||m===q2.b){
+    hits2.add(m);
+    const el=keyEl(kb,m);if(el)el.classList.add('good');
+    if(hits2.size===2)finish2(true,null);
+  }else finish2(false,m);
+}
+function finish2(ok,pressed){
+  locked2=true;record2(ok);
+  const tEl=keyEl(kb,q2.t),bEl=keyEl(kb,q2.b),pair=`${noteName(q2.t)} + ${noteName(q2.b)}`;
+  if(ok){
+    tEl?.classList.add('good');bEl?.classList.add('good');
+    fb.className='feedback good';fb.innerHTML=`<span class="big">${pair}</span><span class="hint">Right.</span>`;
+    advanceTimer=setTimeout(next2,700);
+  }else{
+    if(pressed!=null)keyEl(kb,pressed)?.classList.add('bad');
+    tEl?.classList.add('good');bEl?.classList.add('good');
+    play(q2.t,1.2);play(q2.b,1.2);
+    fb.className='feedback bad';fb.innerHTML=`<span class="big">${pair}</span><span class="hint">${pressed!=null?`You played ${noteName(pressed)}. `:''}The correct keys are lit green. Any key continues.</span>`;
+    advanceTimer=setTimeout(next2,2600);
+  }
+}
+function setHandsMode(){
+  const together=handsModeSel.value==='2';
+  clefLabel.hidden=together;micRow.hidden=together;lettersEl.hidden=together;
+  staff.classList.toggle('staff-off',together);staff2.classList.toggle('staff-off',!together);
+  readKeyhint.innerHTML=together
+    ?'Play the right-hand note and the left-hand note, in either order. Any key moves on after a mistake.'
+    :'Computer keys <kbd>A</kbd> to <kbd>G</kbd> answer by letter. Any key moves on after a mistake. <b>Listen with mic</b> answers by playing the note on a real piano, one note at a time, in a quiet room.';
+  if(together&&micStream)stopMic();
+  kbClef=null;nextRead();
+}
+handsModeSel.addEventListener('change',setHandsMode);
 
 // ---------- hand position ----------
 const POS={
@@ -1248,7 +1354,8 @@ function midiStatus(text,cls){midiPill.textContent=text;midiPill.className='pill
 function midiNoteOn(m){
   const target=activeTab==='read'?kb:activeTab==='practice'?kbP:activeTab==='hand'?kbHand:null;
   if(target){const el=keyEl(target,m);if(el)flash(el,'down',160);}
-  if(activeTab==='read')answerKey(m,'midi');else if(activeTab==='practice')practiceKey(m,'midi');
+  if(activeTab==='read'){if(handsModeSel.value==='2')answerKey2(m,'midi');else answerKey(m,'midi');}
+  else if(activeTab==='practice')practiceKey(m,'midi');
 }
 function bindInputs(){
   let names=[];
@@ -1268,6 +1375,76 @@ async function connectMidi(){
 }
 midiBtn.addEventListener('click',connectMidi);
 if(!navigator.requestMIDIAccess){midiStatus('No MIDI in this browser','err');}
+
+// ---------- mic pitch detection (Read notes flashcards, single note at a time) ----------
+const micPill=$('mic-pill'),micBtn=$('mic-btn');
+let micStream=null,micAnalyser=null,micBuf=null,micLoopId=null;
+let micArmed=true,micStableNote=null,micStableCount=0;
+const MIC_SILENCE_RMS=0.015,MIC_MIN_CONF=0.85,MIC_STABLE_FRAMES=3,MIC_MIN_HZ=55,MIC_MAX_HZ=1050;
+function micStatus(text,cls){micPill.textContent=text;micPill.className='pill '+(cls||'');}
+function freqToMidi(f){return Math.round(69+12*Math.log2(f/440));}
+// Autocorrelation pitch detection, restricted to the piano-ish frequency range so the
+// per-frame cost stays small enough to run continuously in the browser.
+function detectPitch(buf,sampleRate){
+  const SIZE=buf.length;
+  let rms=0;for(let i=0;i<SIZE;i++)rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/SIZE);
+  if(rms<MIC_SILENCE_RMS)return null;
+  let c0=0;for(let i=0;i<SIZE;i++)c0+=buf[i]*buf[i];
+  if(c0===0)return null;
+  const corr=lag=>{let s=0;for(let i=0;i<SIZE-lag;i++)s+=buf[i]*buf[i+lag];return s;};
+  const minLag=Math.max(1,Math.floor(sampleRate/MIC_MAX_HZ)),maxLag=Math.min(SIZE-2,Math.ceil(sampleRate/MIC_MIN_HZ));
+  let best=-Infinity,bestLag=-1;
+  for(let lag=minLag;lag<=maxLag;lag++){const s=corr(lag);if(s>best){best=s;bestLag=lag;}}
+  if(bestLag<0||best/c0<MIC_MIN_CONF)return null;
+  let T0=bestLag;
+  if(bestLag>minLag&&bestLag<maxLag){
+    const x1=corr(bestLag-1),x2=best,x3=corr(bestLag+1),a=(x1+x3-2*x2)/2,b=(x3-x1)/2;
+    if(a)T0=bestLag-b/(2*a);
+  }
+  return sampleRate/T0;
+}
+function micNoteOn(m){
+  if(activeTab!=='read'||handsModeSel.value==='2')return;
+  const el=keyEl(kb,m);if(el)flash(el,'down',160);
+  answerKey(m,'mic');
+}
+function micTick(){
+  if(!micAnalyser||activeTab!=='read')return;
+  micAnalyser.getFloatTimeDomainData(micBuf);
+  const freq=detectPitch(micBuf,ctx.sampleRate);
+  if(freq==null){micArmed=true;micStableNote=null;micStableCount=0;return;}
+  const m=freqToMidi(freq);
+  micStableCount=(m===micStableNote)?micStableCount+1:1;
+  micStableNote=m;
+  if(micArmed&&micStableCount>=MIC_STABLE_FRAMES){micArmed=false;micNoteOn(m);}
+}
+function stopMic(){
+  if(micLoopId)clearInterval(micLoopId);micLoopId=null;
+  if(micStream)micStream.getTracks().forEach(t=>t.stop());micStream=null;
+  micAnalyser=null;micBuf=null;
+  micStatus('Mic off','');micBtn.textContent='Listen with mic';
+}
+async function connectMic(){
+  if(micStream){stopMic();return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){micStatus('No mic in this browser','err');return;}
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+  }catch(e){
+    const msg=String(e&&e.name||e);
+    micStatus(msg.includes('NotAllowed')?'Microphone permission refused':'Microphone unavailable','err');
+    return;
+  }
+  const c=audio(),src=c.createMediaStreamSource(micStream);
+  micAnalyser=c.createAnalyser();micAnalyser.fftSize=2048;
+  micBuf=new Float32Array(micAnalyser.fftSize);
+  src.connect(micAnalyser);
+  micArmed=true;micStableNote=null;micStableCount=0;
+  micLoopId=setInterval(micTick,60);
+  micStatus('Listening','on');micBtn.textContent='Stop mic';
+}
+micBtn.addEventListener('click',connectMic);
+if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){micStatus('No mic in this browser','err');micBtn.disabled=true;}
 
 // ---------- photo transcription (claude.ai only) ----------
 const photoIn=$('photo-in'),photoPrev=$('photo-prev'),btnTr=$('btn-transcribe'),aiStatus=$('ai-status'),aiOut=$('ai-out');
