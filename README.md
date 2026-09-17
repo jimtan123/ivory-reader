@@ -21,16 +21,21 @@ are lost if you clear the browser's data for this site.
 
 - **Read notes** — flashcards on a treble or bass staff. Answer by tapping the
   on-screen keyboard, tapping a note name, pressing A–G on a computer keyboard,
-  or playing the note on a MIDI piano. Notes you get wrong come back more often.
+  playing the note on a MIDI piano, or **Listen with mic**, which answers by
+  playing the note on any real piano, one note at a time, in a quiet room.
+  Notes you get wrong come back more often.
 - **Hand position** — C, Middle C and G positions with a finger number on every
   key, a posture checklist, and a drill that asks which finger plays a note.
 - **Practice** — pieces on a grand staff. **Listen** plays at the metronome
   tempo with a count-in. **Play along** clicks through the piece at that tempo
   while you play and scores each note: on time within a third of a beat, missed,
   or wrong; with one hand selected the app plays the other. **Wait mode** lights
-  the next keys and waits until you play them, so you set the pace. A **moving
-  line** rides the beat across the score in Listen and Play along; its checkbox
-  turns it off, and Wait mode has no clock so it has no line.
+  the next keys and waits until you play them, so you set the pace; it can also
+  be graded with **Listen with mic** on a real piano, one note at a time — a
+  chord (both hands landing together) can't be told apart by ear-only pitch
+  detection, so those steps are left for a tap or a MIDI piano instead. A
+  **moving line** rides the beat across the score in Listen and Play along; its
+  checkbox turns it off, and Wait mode has no clock so it has no line.
 - **Progress** — accuracy per note, speed, and a run history per piece.
 - **Metronome and MIDI** in the bar along the bottom.
 - **Piano sound** is a sampled grand: the [Salamander Grand Piano](https://github.com/sfzinstruments/SalamanderGrandPiano)
