@@ -182,6 +182,17 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
 .dock .spacer{flex:1 1 auto}
 .dock .midi{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 
+/* pointer:coarse comes before the landscape-tablet block below so that, on a
+   touchscreen tablet in landscape (both match), the tablet block's taller,
+   more specific .kb height wins the cascade instead of this general one. */
+@media (pointer: coarse){
+  .kb{height:190px}
+  .kb .w{font-size:13px}
+  .keyhint{display:none}
+  .btn{padding:10px 16px}
+  .dock .bpm .btn{padding:8px 14px}
+  nav button{padding:10px 14px}
+}
 /* landscape tablet: one screen, no scrolling to reach the keyboard */
 @media (orientation: landscape) and (min-width: 640px){
   :root{--gx:20px}
@@ -201,7 +212,7 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   .read-grid .staffbox{grid-row:1}
   .read-grid .side{grid-row:1;display:flex;flex-direction:column;gap:8px}
   .read-grid .kbwrap{grid-column:1 / -1}
-  .kb{height:190px}
+  .kb{height:210px}
   svg.staff{max-width:320px}
   .feedback{min-height:60px}
   .score{max-height:40vh}
@@ -209,15 +220,14 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   .card{padding:12px 14px}
   details.compact{margin-top:8px}
 }
-@media (pointer: coarse){
-  .kb{height:180px}
-  .kb .w{font-size:13px}
-  .keyhint{display:none}
-  .btn{padding:10px 16px}
-  .dock .bpm .btn{padding:8px 14px}
-  nav button{padding:10px 14px}
-}
 :fullscreen body,:-webkit-full-screen body{background:var(--bg)}
+/* focus mode: hide secondary chrome and give the keyboard more room */
+.app.focus h1 small,.app.focus #mic-row,.app.focus details.compact{display:none}
+.app.focus header.top{padding-block:6px 4px}
+.app.focus .kb{height:230px}
+@media (max-width: 760px) and (orientation: portrait){
+  .app.focus .kb{height:170px}
+}
 /* Phone portrait: fit the staff, the answer row and the keys above the metronome bar.
    Placed after the coarse-pointer block so it wins on a phone, which is both. */
 @media (max-width: 760px) and (orientation: portrait){

@@ -85,7 +85,9 @@ function buildKeyboard(el,lo,hi,opts){
   opts=opts||{};el.innerHTML='';
   const whites=[];for(let m=lo;m<=hi;m++)if(!isBlack(m))whites.push(m);
   const avail=el.parentElement.clientWidth||360,coarse=matchMedia('(pointer: coarse)').matches;
-  const kw=Math.max(coarse?26:22,Math.min(opts.maxKw||(coarse?76:56),Math.floor(avail/whites.length)));
+  // Touch keys never shrink below a comfortable fingertip width; when the range
+  // doesn't fit, the keyboard scrolls horizontally (.kbwrap) instead of squeezing keys.
+  const kw=Math.max(coarse?38:22,Math.min(opts.maxKw||(coarse?100:56),Math.floor(avail/whites.length)));
   el.style.setProperty('--kw',kw+'px');el.style.width=(whites.length*kw)+'px';
   whites.forEach(m=>{
     const d=document.createElement('div');d.className='w'+(m===60?' middle':'');d.dataset.m=m;
@@ -891,14 +893,27 @@ $('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress 
   if(isIOS())show();
 })();
 
-// ---------- full screen ----------
+// ---------- focus mode ----------
+// Hides secondary chrome so the keyboard gets more room, and also requests real
+// browser fullscreen where supported. iPad Safari has no Fullscreen API for
+// arbitrary elements, so the declutter class is what actually helps there.
 (function(){
-  const d=document.documentElement,btn=$('fs');
+  const d=document.documentElement,app=document.querySelector('.app'),btn=$('fs');
   const req=d.requestFullscreen||d.webkitRequestFullscreen,exit=document.exitFullscreen||document.webkitExitFullscreen;
-  if(!req)return;btn.hidden=false;
   const inFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
-  btn.addEventListener('click',()=>{try{inFs()?exit.call(document):req.call(d);}catch(e){}});
-  ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{btn.textContent=inFs()?'Exit full screen':'Full screen';setTimeout(()=>window.dispatchEvent(new Event('resize')),100);}));
+  const setLabel=()=>{btn.textContent=app.classList.contains('focus')?'Exit focus mode':'Focus mode';};
+  let on=false;try{on=localStorage.getItem(KEY+':focus')==='1';}catch(e){}
+  app.classList.toggle('focus',on);setLabel();
+  btn.addEventListener('click',()=>{
+    on=!app.classList.contains('focus');app.classList.toggle('focus',on);setLabel();
+    try{localStorage.setItem(KEY+':focus',on?'1':'0');}catch(e){}
+    if(req){try{on&&!inFs()?req.call(d):!on&&inFs()&&exit.call(document);}catch(e){}}
+    setTimeout(()=>window.dispatchEvent(new Event('resize')),100);
+  });
+  ['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{
+    if(!inFs()&&app.classList.contains('focus')){app.classList.remove('focus');setLabel();try{localStorage.setItem(KEY+':focus','0');}catch(e){}}
+    setTimeout(()=>window.dispatchEvent(new Event('resize')),100);
+  }));
 })();
 
 // ---------- boot ----------
