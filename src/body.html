@@ -18,7 +18,7 @@
     <label id="clef-label">Clef <select id="clef"><option value="treble">Treble only</option><option value="bass">Bass only</option><option value="both" selected>Both</option></select></label>
     <label>Range <select id="range"><option value="staff">Inside the staff</option><option value="ledger">With ledger lines</option></select></label>
     <label><input type="checkbox" id="names" checked> Key names</label>
-    <span class="row" style="margin-left:auto" id="mic-row"><span class="pill" id="mic-pill">Mic off</span><button class="btn sm" id="mic-btn">Listen with mic</button></span>
+    <span class="row" style="margin-left:auto" id="mic-row"><span class="pill mic-pill" id="mic-pill">Mic off</span><button class="btn sm mic-btn" id="mic-btn">Listen with mic</button></span>
   </div>
   <div class="card read-grid">
     <div class="staffbox">
@@ -89,6 +89,7 @@
     <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
     <label><input type="checkbox" id="countin" checked> Count-in</label>
     <label><input type="checkbox" id="showline" checked> Moving line</label>
+    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn">Listen with mic</button></span>
     <span class="row" style="margin-left:auto">
       <button class="btn" id="btn-listen">Listen</button>
       <button class="btn" id="btn-play">Play along</button>
@@ -97,6 +98,7 @@
   </div>
   <div class="score" id="score"><svg id="score-svg"></svg></div>
   <div class="pstatus"><span class="now" id="p-now"></span><span class="muted" id="p-where"></span><span class="muted" id="p-mist"></span></div>
+  <p class="muted small" id="mic-chord-hint" hidden style="margin:2px 0 0">Mic grades one note at a time. Chords in this piece won't be scored by mic — tap them, use MIDI, or turn Hands to one hand to avoid them.</p>
   <div class="kbwrap"><div class="kb" id="kb-p" role="group" aria-label="Practice keyboard"></div></div>
   <details class="compact">
     <summary>How Listen, Play along and Wait mode differ</summary>

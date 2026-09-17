@@ -312,7 +312,7 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
     <label id="clef-label">Clef <select id="clef"><option value="treble">Treble only</option><option value="bass">Bass only</option><option value="both" selected>Both</option></select></label>
     <label>Range <select id="range"><option value="staff">Inside the staff</option><option value="ledger">With ledger lines</option></select></label>
     <label><input type="checkbox" id="names" checked> Key names</label>
-    <span class="row" style="margin-left:auto" id="mic-row"><span class="pill" id="mic-pill">Mic off</span><button class="btn sm" id="mic-btn">Listen with mic</button></span>
+    <span class="row" style="margin-left:auto" id="mic-row"><span class="pill mic-pill" id="mic-pill">Mic off</span><button class="btn sm mic-btn" id="mic-btn">Listen with mic</button></span>
   </div>
   <div class="card read-grid">
     <div class="staffbox">
@@ -383,6 +383,7 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
     <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
     <label><input type="checkbox" id="countin" checked> Count-in</label>
     <label><input type="checkbox" id="showline" checked> Moving line</label>
+    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn">Listen with mic</button></span>
     <span class="row" style="margin-left:auto">
       <button class="btn" id="btn-listen">Listen</button>
       <button class="btn" id="btn-play">Play along</button>
@@ -391,6 +392,7 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   </div>
   <div class="score" id="score"><svg id="score-svg"></svg></div>
   <div class="pstatus"><span class="now" id="p-now"></span><span class="muted" id="p-where"></span><span class="muted" id="p-mist"></span></div>
+  <p class="muted small" id="mic-chord-hint" hidden style="margin:2px 0 0">Mic grades one note at a time. Chords in this piece won't be scored by mic — tap them, use MIDI, or turn Hands to one hand to avoid them.</p>
   <div class="kbwrap"><div class="kb" id="kb-p" role="group" aria-label="Practice keyboard"></div></div>
   <details class="compact">
     <summary>How Listen, Play along and Wait mode differ</summary>
@@ -1245,7 +1247,7 @@ function highlight(idx){
   const mi=Math.floor(o.beat/piece.beatsPerBar);$('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
 }
 function setNow(text,cls){const el=$('p-now');el.textContent=text;el.className='now '+(cls||'');}
-function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';}
+function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();}
 function stopAll(){
   cancelAnimationFrame(transport.raf);
   if(transport.bus){try{transport.bus.disconnect();}catch(e){}transport.bus=null;}
@@ -1333,6 +1335,7 @@ function waitAdvance(){
   const names=[...transport.need].sort((x,y)=>x-y).map(noteName).join(' + ');
   setNow(names);$('p-mist').textContent=transport.mist?`${transport.mist} wrong`:'';
   if(showKeys.checked)transport.need.forEach(m=>keyEl(kbP,m)?.classList.add('want'));
+  updateMicChordHint();
 }
 function practiceKey(m,source){
   const el=keyEl(kbP,m);
@@ -1418,12 +1421,14 @@ async function connectMidi(){
 midiBtn.addEventListener('click',connectMidi);
 if(!navigator.requestMIDIAccess){midiStatus('No MIDI in this browser','err');}
 
-// ---------- mic pitch detection (Read notes flashcards, single note at a time) ----------
-const micPill=$('mic-pill'),micBtn=$('mic-btn');
+// ---------- mic pitch detection (Read flashcards, and single-note steps in Practice) ----------
+// One autocorrelation pitch detector, shared by both tabs' mic buttons (same class,
+// so either one connects/disconnects the one mic stream and both stay in sync).
+const micPills=()=>document.querySelectorAll('.mic-pill'),micBtns=()=>document.querySelectorAll('.mic-btn');
 let micStream=null,micAnalyser=null,micBuf=null,micLoopId=null;
 let micArmed=true,micStableNote=null,micStableCount=0;
 const MIC_SILENCE_RMS=0.015,MIC_MIN_CONF=0.85,MIC_STABLE_FRAMES=3,MIC_MIN_HZ=55,MIC_MAX_HZ=1050;
-function micStatus(text,cls){micPill.textContent=text;micPill.className='pill '+(cls||'');}
+function micStatus(text,cls){micPills().forEach(el=>{el.textContent=text;el.className='pill mic-pill '+(cls||'');});}
 function freqToMidi(f){return Math.round(69+12*Math.log2(f/440));}
 // Autocorrelation pitch detection, restricted to the piano-ish frequency range so the
 // per-frame cost stays small enough to run continuously in the browser.
@@ -1446,13 +1451,30 @@ function detectPitch(buf,sampleRate){
   }
   return sampleRate/T0;
 }
+// Practice's Wait mode can only be graded by mic one note at a time: a chord (two
+// hands landing together, or a coincident onset) needs simultaneous pitches that
+// autocorrelation can't pull apart, so those steps are left for tap or MIDI instead
+// of risking a false "wrong". updateMicChordHint() shows/hides the explanation.
+function practiceMicNote(m){
+  if(activeTab!=='practice'||transport.mode!=='wait'||transport.need.size!==1)return;
+  const el=keyEl(kbP,m);if(el)flash(el,'down',160);
+  practiceKey(m,'mic');
+}
+function updateMicChordHint(){
+  const hint=$('mic-chord-hint');if(!hint)return;
+  hint.hidden=!(micStream&&activeTab==='practice'&&transport.mode==='wait'&&transport.need&&transport.need.size>1);
+}
 function micNoteOn(m){
-  if(activeTab!=='read'||handsModeSel.value==='2')return;
-  const el=keyEl(kb,m);if(el)flash(el,'down',160);
-  answerKey(m,'mic');
+  if(activeTab==='read'){
+    if(handsModeSel.value==='2')return;
+    const el=keyEl(kb,m);if(el)flash(el,'down',160);
+    answerKey(m,'mic');
+  }else if(activeTab==='practice'){
+    practiceMicNote(m);
+  }
 }
 function micTick(){
-  if(!micAnalyser||activeTab!=='read')return;
+  if(!micAnalyser||(activeTab!=='read'&&activeTab!=='practice'))return;
   micAnalyser.getFloatTimeDomainData(micBuf);
   const freq=detectPitch(micBuf,ctx.sampleRate);
   if(freq==null){micArmed=true;micStableNote=null;micStableCount=0;return;}
@@ -1465,7 +1487,8 @@ function stopMic(){
   if(micLoopId)clearInterval(micLoopId);micLoopId=null;
   if(micStream)micStream.getTracks().forEach(t=>t.stop());micStream=null;
   micAnalyser=null;micBuf=null;
-  micStatus('Mic off','');micBtn.textContent='Listen with mic';
+  micStatus('Mic off','');micBtns().forEach(b=>b.textContent='Listen with mic');
+  updateMicChordHint();
 }
 async function connectMic(){
   if(micStream){stopMic();return;}
@@ -1483,10 +1506,11 @@ async function connectMic(){
   src.connect(micAnalyser);
   micArmed=true;micStableNote=null;micStableCount=0;
   micLoopId=setInterval(micTick,60);
-  micStatus('Listening','on');micBtn.textContent='Stop mic';
+  micStatus('Listening','on');micBtns().forEach(b=>b.textContent='Stop mic');
+  updateMicChordHint();
 }
-micBtn.addEventListener('click',connectMic);
-if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){micStatus('No mic in this browser','err');micBtn.disabled=true;}
+micBtns().forEach(b=>b.addEventListener('click',connectMic));
+if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){micStatus('No mic in this browser','err');micBtns().forEach(b=>b.disabled=true);}
 
 // ---------- photo transcription (claude.ai only) ----------
 const photoIn=$('photo-in'),photoPrev=$('photo-prev'),btnTr=$('btn-transcribe'),aiStatus=$('ai-status'),aiOut=$('ai-out');
