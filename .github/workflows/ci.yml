@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Unit tests
+        run: node --test test/*.test.mjs
+
+      # index.html is generated from src/, so a commit that edits one without
+      # rebuilding the other ships a site that does not match its source.
+      - name: index.html is up to date with src/
+        run: |
+          ./build.sh
+          if ! git diff --quiet -- index.html; then
+            echo "::error file=index.html::index.html does not match src/. Run ./build.sh and commit the result."
+            git diff --stat -- index.html
+            exit 1
+          fi

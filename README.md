@@ -115,3 +115,7 @@ node --test test/*.test.mjs
 
 When you change any cached file, bump `VERSION` in `sw.js` so installed copies
 pick the new one up.
+
+Both checks run on every pull request (`.github/workflows/ci.yml`): the tests,
+and a rebuild that fails if `index.html` no longer matches `src/`, which is how
+a commit that edits one without the other gets caught.
