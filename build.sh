@@ -19,7 +19,7 @@ PWA_HEAD='<link rel="stylesheet" href="./fonts/fonts.css">
 
 CDN_HEAD='<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&family=Noto+Music&display=swap">'
 
-modules() { printf '<script>\n'; cat src/parse.js src/playalong.js src/piano.js; printf '</script>\n'; }
+modules() { printf '<script>\n'; cat src/parse.js src/playalong.js src/piano.js src/ear.js; printf '</script>\n'; }
 
 # The claude.ai copy cannot fetch audio files, so the samples ride along as base64.
 embedded_samples() {

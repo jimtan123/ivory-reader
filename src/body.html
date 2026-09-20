@@ -4,6 +4,7 @@
   <nav role="tablist">
     <button role="tab" aria-selected="true" data-tab="read" id="tab-read"><span class="lg">Read notes</span><span class="sm-l">Read</span></button>
     <button role="tab" aria-selected="false" data-tab="hand" id="tab-hand"><span class="lg">Hand position</span><span class="sm-l">Hands</span></button>
+    <button role="tab" aria-selected="false" data-tab="ear" id="tab-ear"><span class="lg">Ear training</span><span class="sm-l">Ear</span></button>
     <button role="tab" aria-selected="false" data-tab="practice" id="tab-practice">Practice</button>
     <button role="tab" aria-selected="false" data-tab="progress" id="tab-progress">Progress</button>
   </nav>
@@ -79,6 +80,42 @@
       <div class="feedback" id="fd-feedback"><span class="hint">Keys 1 to 5 on your computer work too.</span></div>
     </div>
   </div>
+</section>
+
+<!-- EAR -->
+<section class="panel" id="panel-ear">
+  <div class="controls">
+    <label>Drill <select id="ear-drill"><option value="note" selected>Name the note</option><option value="interval">Name the interval</option><option value="hl">Higher or lower</option></select></label>
+    <label id="ear-range-label">Range <select id="ear-range"><option value="five">Five keys, C to G</option><option value="oct" selected>One octave, C4 to C5</option><option value="two">Two octaves, C3 to C5</option></select></label>
+    <label id="ear-keys-label">Keys <select id="ear-keys"><option value="white" selected>White keys only</option><option value="all">Every key, black ones too</option></select></label>
+    <label id="ear-set-label" hidden>Intervals <select id="ear-set"><option value="fifths" selected>Fifths and octaves</option><option value="thirds">Thirds, fourths, fifths</option><option value="scale">Steps of the major scale</option><option value="all">Everything inside an octave</option></select></label>
+    <label id="ear-dir-label" hidden>Played <select id="ear-dir"><option value="up" selected>One then the other, going up</option><option value="down">One then the other, going down</option><option value="harmonic">Both together</option><option value="mixed">Mixed</option></select></label>
+    <label id="ear-gap-label" hidden>Gap <select id="ear-gap"><option value="wide" selected>Wide, six keys or more</option><option value="mid">Middle, three to five keys</option><option value="close">Close, one or two keys</option><option value="mixed">Mixed</option></select></label>
+    <label id="ear-ref-label"><input type="checkbox" id="ear-ref" checked> Reference C first</label>
+    <label id="ear-names-label"><input type="checkbox" id="ear-names" checked> Key names</label>
+    <span class="row" style="margin-left:auto"><button class="btn" id="ear-replay">Replay</button><button class="btn primary" id="ear-next">New question</button></span>
+  </div>
+  <div class="card">
+    <div class="earstatus" id="ear-status">Press <b>New question</b> to hear the first one.</div>
+    <div class="feedback" id="ear-feedback"><span class="hint">Nothing is drawn on a staff here. The question is a sound, and the answer is in your ear.</span></div>
+    <div class="statline"><span>This session <b id="e-count">0</b></span><span>Correct <b id="e-acc">–</b></span><span>Streak <b id="e-streak">0</b></span></div>
+    <div class="choices" id="ear-choices" role="group" aria-label="Answer"></div>
+    <div class="kbwrap" id="ear-kbwrap"><div class="kb" id="kb-ear" role="group" aria-label="Answer by tapping the key you heard"></div></div>
+    <p class="muted small" id="ear-sound-warn" hidden style="margin:8px 0 0">There is nothing to hear: <b>App sound</b> is switched off in the header.</p>
+    <div class="keyhint" id="ear-keyhint">Spacebar replays the question, <kbd>Enter</kbd> asks a new one. Any answer moves on after a mistake.</div>
+  </div>
+  <details class="compact">
+    <summary>How to train your ear</summary>
+    <p class="muted" style="margin-top:8px">Hearing pitch is comparison, not magic. Almost nobody names a note out of silence; what you are building is the ability to hear how far one note sits from another. So the drills give you a bearing and ask about the distance from it.</p>
+    <div class="mnem">
+      <div><b>Start here</b>Higher or lower with a wide gap. Then narrow the gap until one or two keys apart is still obvious.</div>
+      <div><b>Then intervals</b>Fifths and octaves first, because they are hard to confuse with anything. Add thirds when those are automatic.</div>
+      <div><b>Then the note</b>With <b>Reference C first</b> on, you hear the C, then the mystery note. Five keys is the beginner's range; widen it once you are past nine in ten.</div>
+      <div><b>Sing it back</b>Hum the note before you answer. Matching it with your voice tells you more than guessing does, and it is what makes the interval stick.</div>
+      <div><b>Little and often</b>Five minutes a day beats an hour on Sunday. Ears change slowly and they do not cram.</div>
+      <div><b>Use the piano</b>Wrong answers replay with the answer revealed. Play that interval on your own piano straight away, while it is still in your head.</div>
+    </div>
+  </details>
 </section>
 
 <!-- PRACTICE -->
@@ -161,6 +198,16 @@
     <h3 style="margin-top:18px">Bass clef, by note</h3>
     <div class="grid" id="grid-bass"></div>
     <p class="muted small" style="margin-top:14px">Each cell shows correct answers over attempts. Notes you miss come up more often in the drill until you get them right. Aim for green across the board and under two seconds a note before you widen the range.</p>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>Ear training</h3>
+    <div class="statline" style="margin:0 0 10px"><span>Answered <b id="e-total">0</b></span><span>Correct <b id="e-total-acc">–</b></span></div>
+    <h3>Intervals</h3>
+    <div class="grid" id="grid-int"></div>
+    <h3 style="margin-top:18px">Single notes, by pitch</h3>
+    <div class="grid" id="grid-earnote"></div>
+    <p class="muted small" id="earnote-empty" hidden style="margin-top:8px">No single-note answers yet. <b>Ear training → Name the note</b> fills this in.</p>
+    <p class="muted small" style="margin-top:14px">Higher or lower, by how far apart the two notes were: <span id="ear-hl-line">–</span>. The drills ask more often about whatever you have been missing, same as the reading flashcards.</p>
   </div>
   <div class="card" style="margin-top:14px">
     <h3>Pieces</h3>

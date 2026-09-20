@@ -1,7 +1,8 @@
 # Ivory Reader
 
-A piano trainer for beginners: read notes, learn where your hands go, practise
-with a metronome. It installs on a phone or tablet and works with no signal.
+A piano trainer for beginners: read notes, learn where your hands go, train your
+ear, practise with a metronome. It installs on a phone or tablet and works with
+no signal.
 
 **Live app:** https://jimtan123.github.io/ivory-reader/
 
@@ -26,6 +27,14 @@ are lost if you clear the browser's data for this site.
   Notes you get wrong come back more often.
 - **Hand position** — C, Middle C and G positions with a finger number on every
   key, a posture checklist, and a drill that asks which finger plays a note.
+- **Ear training** — three listening drills, no staff involved. **Higher or
+  lower** plays two notes and asks which way the second one went, with a gap you
+  can narrow to a single semitone. **Name the interval** plays two notes, up,
+  down or together, and you pick the interval from a set that starts at fifths
+  and octaves. **Name the note** plays a reference C and then a mystery note,
+  which you find on the keyboard, over five keys, one octave or two, white keys
+  or chromatic. A wrong answer is revealed and played again. Whatever you keep
+  missing is asked more often, the same way the reading flashcards work.
 - **Practice** — pieces on a grand staff. **Listen** plays at the metronome
   tempo with a count-in. **Play along** clicks through the piece at that tempo
   while you play and scores each note: on time within a third of a beat, missed,
@@ -85,10 +94,11 @@ in one, then paste into the other's Notation box and press **Load and save**.
 ## Building
 
 `src/` holds the source; both copies are generated from it, so edit `src/` and
-never `index.html` directly. `src/parse.js` (the notation parser) and
-`src/playalong.js` (the play-along scorer) are plain scripts that the build
-inlines ahead of `src/script.html`; they have no DOM dependency so the tests can
-load them directly:
+never `index.html` directly. `src/parse.js` (the notation parser),
+`src/playalong.js` (the play-along scorer), `src/piano.js` (the sampled piano)
+and `src/ear.js` (the ear drills' pools and weighting) are plain scripts that the
+build inlines ahead of `src/script.html`; they have no DOM dependency so the
+tests can load them directly:
 
 ```sh
 node --test test/*.test.mjs
