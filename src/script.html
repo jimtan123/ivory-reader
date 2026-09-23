@@ -278,7 +278,7 @@ handsModeSel.addEventListener('change',setHandsMode);
 
 // ---------- hand position ----------
 const POS={
-  c:{title:'C position',desc:'The first position every method book starts with. Right thumb on middle C, left little finger on the C an octave below. Each finger owns one key and does not move.',
+  c:{title:'C position',desc:'The first position every method book starts with. Right thumb on middle C, left little finger on the C an octave below. Each finger owns one key and does not move. Jingle Bells (C position) in Practice stays here from start to finish.',
      L:[[midi('C',3),5],[midi('D',3),4],[midi('E',3),3],[midi('F',3),2],[midi('G',3),1]],R:[[midi('C',4),1],[midi('D',4),2],[midi('E',4),3],[midi('F',4),4],[midi('G',4),5]]},
   mc:{title:'Middle C position',desc:'Both thumbs share middle C. The hands sit side by side, which is how many beginner duets and the first two-hand pieces are written.',
      L:[[midi('F',3),5],[midi('G',3),4],[midi('A',3),3],[midi('B',3),2],[midi('C',4),1]],R:[[midi('C',4),1],[midi('D',4),2],[midi('E',4),3],[midi('F',4),4],[midi('G',4),5]]},
@@ -465,7 +465,24 @@ time: 4/4
 key: C
 tempo: 96
 RH: E4/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q. D4/e | E4/w | F4/q F4/q F4/q. F4/e | F4/q E4/q E4/q E4/e E4/e | E4/q D4/q D4/q E4/q | D4/h G4/h
-LH: C3/h C3/h | C3/h C3/h | C3/h C3/h | C3/w | F3/h F3/h | C3/h C3/h | G3/h G3/h | G3/h G3/h`
+LH: C3/h C3/h | C3/h C3/h | C3/h C3/h | C3/w | F3/h F3/h | C3/h C3/h | G3/h G3/h | G3/h G3/h`,
+  'b:jingle-c':`# Jingle Bells, Simply Piano beginner arrangement, from the lesson sheet on 2026-09-23.
+# Both hands stay in C position the whole way (see Hand position).
+# RH: C4-G4, fingers 1-5. LH: C3 = 5, F3 = 2, G3 = 1.
+# Phrases: 1 = bars 1-4, 2A = bars 5-8, 1 = bars 9-12, 2B = bars 13-16.
+# The page gives no tempo; 84 is a starting point, change it with the metronome.
+title: Jingle Bells (C position)
+time: 4/4
+key: C
+tempo: 84
+RH: E4/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q D4/q | E4/w
+LH: [C3 G3]/w | r/w | [C3 G3]/w | r/w
+RH: F4/q F4/q F4/q F4/q | F4/q E4/q E4/q E4/q | E4/q D4/q D4/q E4/q | D4/h G4/h
+LH: [F3 G3]/w | r/w | [F3 G3]/w | r/w
+RH: E4/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q D4/q | E4/w
+LH: [C3 G3]/w | r/w | [C3 G3]/w | r/w
+RH: F4/q F4/q F4/q F4/q | F4/q E4/q E4/q E4/q | G4/q G4/q F4/q D4/q | C4/w
+LH: [F3 G3]/w | r/w | [F3 G3]/w | [C3 G3]/w`
 };
 const pieceSel=$('piece'),notationTa=$('notation'),errsEl=$('notation-errs'),scoreSvg=$('score-svg'),scoreBox=$('score'),kbP=$('kb-p');
 let piece=null,pieceId=null,notePos={},barPos=[],playheadEl=null,practiceKbRange=null;
