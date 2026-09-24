@@ -173,6 +173,19 @@ summary{cursor:pointer;font-weight:600;font-size:15px}
 .pstatus .now{font-family:var(--font-display);font-size:20px;font-weight:700}
 .pstatus .now.good{color:var(--good)}.pstatus .now.bad{color:var(--bad)}
 .errs{color:var(--bad);font-size:14px;white-space:pre-wrap}
+/* practice toolbar: one row. Options holds the set-once settings. */
+.ptools{gap:8px 10px}
+.ptools #piece{max-width:240px;min-width:0}
+.ptools .pgo{margin-left:auto;gap:8px}
+/* the button says whether the mic is on; the pill only shows up to explain a failure */
+.ptools .mic-pill:not(.err){display:none}
+.mic-btn.on::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:1px}
+details.popover{position:relative;margin:0;border:0;padding:0}
+details.popover>summary{list-style:none;display:inline-block}
+details.popover>summary::-webkit-details-marker{display:none}
+details.popover>summary::after{content:"\25BE";margin-left:6px;font-size:11px}
+details.popover[open]>summary{background:var(--soft)}
+details.popover .pop{position:absolute;top:calc(100% + 6px);left:0;z-index:20;display:grid;gap:12px;min-width:210px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .photo{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
 .photo img{max-width:220px;max-height:180px;border-radius:6px;border:1px solid var(--line)}
 .notation-help{font-size:14px;color:var(--muted)}
@@ -269,6 +282,15 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   body.lock-scroll #panel-practice.active>.kbwrap{flex:0 0 auto}
   body.lock-scroll #panel-practice.active>.score{flex:1 1 auto;min-height:70px;max-height:none}
   body.lock-scroll #panel-practice.active>details{display:none}
+}
+/* Practice on a landscape tablet: every row above the score is height the
+   bass staff does not get, so the header and toolbar sit as tight as they can. */
+@media (orientation: landscape) and (min-width: 640px) and (min-height: 480px){
+  body.lock-scroll header.top{padding-block:4px 0}
+  body.lock-scroll nav{margin-bottom:6px}
+  body.lock-scroll nav button{padding-block:6px}
+  body.lock-scroll #panel-practice .controls{margin-bottom:6px}
+  body.lock-scroll .pstatus{margin:4px 0 0;min-height:22px}
 }
 /* focus mode: hide secondary chrome and give the keyboard more room */
 .app.focus h1 small,.app.focus #mic-row,.app.focus details.compact{display:none}

@@ -120,14 +120,21 @@
 
 <!-- PRACTICE -->
 <section class="panel" id="panel-practice">
-  <div class="controls">
-    <label>Piece <select id="piece"></select></label>
-    <label>Hands <select id="hands"><option value="both">Both</option><option value="RH">Right only</option><option value="LH">Left only</option></select></label>
-    <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
-    <label><input type="checkbox" id="countin" checked> Count-in</label>
-    <label><input type="checkbox" id="showline" checked> Moving line</label>
-    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn">Listen with mic</button></span>
-    <span class="row" style="margin-left:auto">
+  <!-- One row: what to play, how to play it. The settings you set once and
+       leave sit behind Options, so the score gets the height for both staves. -->
+  <div class="controls ptools">
+    <select id="piece" aria-label="Piece"></select>
+    <select id="hands" aria-label="Hands"><option value="both">Both hands</option><option value="RH">Right hand</option><option value="LH">Left hand</option></select>
+    <details class="popover" id="p-opts">
+      <summary class="btn sm">Options</summary>
+      <div class="pop">
+        <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
+        <label><input type="checkbox" id="countin" checked> Count-in</label>
+        <label><input type="checkbox" id="showline" checked> Moving line</label>
+      </div>
+    </details>
+    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn" data-off="Use mic">Use mic</button></span>
+    <span class="row pgo">
       <button class="btn" id="btn-listen">Listen</button>
       <button class="btn" id="btn-play">Play along</button>
       <button class="btn primary" id="btn-wait">Wait mode</button>

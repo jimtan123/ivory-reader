@@ -188,6 +188,19 @@ summary{cursor:pointer;font-weight:600;font-size:15px}
 .pstatus .now{font-family:var(--font-display);font-size:20px;font-weight:700}
 .pstatus .now.good{color:var(--good)}.pstatus .now.bad{color:var(--bad)}
 .errs{color:var(--bad);font-size:14px;white-space:pre-wrap}
+/* practice toolbar: one row. Options holds the set-once settings. */
+.ptools{gap:8px 10px}
+.ptools #piece{max-width:240px;min-width:0}
+.ptools .pgo{margin-left:auto;gap:8px}
+/* the button says whether the mic is on; the pill only shows up to explain a failure */
+.ptools .mic-pill:not(.err){display:none}
+.mic-btn.on::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:1px}
+details.popover{position:relative;margin:0;border:0;padding:0}
+details.popover>summary{list-style:none;display:inline-block}
+details.popover>summary::-webkit-details-marker{display:none}
+details.popover>summary::after{content:"\25BE";margin-left:6px;font-size:11px}
+details.popover[open]>summary{background:var(--soft)}
+details.popover .pop{position:absolute;top:calc(100% + 6px);left:0;z-index:20;display:grid;gap:12px;min-width:210px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .photo{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
 .photo img{max-width:220px;max-height:180px;border-radius:6px;border:1px solid var(--line)}
 .notation-help{font-size:14px;color:var(--muted)}
@@ -284,6 +297,15 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   body.lock-scroll #panel-practice.active>.kbwrap{flex:0 0 auto}
   body.lock-scroll #panel-practice.active>.score{flex:1 1 auto;min-height:70px;max-height:none}
   body.lock-scroll #panel-practice.active>details{display:none}
+}
+/* Practice on a landscape tablet: every row above the score is height the
+   bass staff does not get, so the header and toolbar sit as tight as they can. */
+@media (orientation: landscape) and (min-width: 640px) and (min-height: 480px){
+  body.lock-scroll header.top{padding-block:4px 0}
+  body.lock-scroll nav{margin-bottom:6px}
+  body.lock-scroll nav button{padding-block:6px}
+  body.lock-scroll #panel-practice .controls{margin-bottom:6px}
+  body.lock-scroll .pstatus{margin:4px 0 0;min-height:22px}
 }
 /* focus mode: hide secondary chrome and give the keyboard more room */
 .app.focus h1 small,.app.focus #mic-row,.app.focus details.compact{display:none}
@@ -440,14 +462,21 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
 
 <!-- PRACTICE -->
 <section class="panel" id="panel-practice">
-  <div class="controls">
-    <label>Piece <select id="piece"></select></label>
-    <label>Hands <select id="hands"><option value="both">Both</option><option value="RH">Right only</option><option value="LH">Left only</option></select></label>
-    <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
-    <label><input type="checkbox" id="countin" checked> Count-in</label>
-    <label><input type="checkbox" id="showline" checked> Moving line</label>
-    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn">Listen with mic</button></span>
-    <span class="row" style="margin-left:auto">
+  <!-- One row: what to play, how to play it. The settings you set once and
+       leave sit behind Options, so the score gets the height for both staves. -->
+  <div class="controls ptools">
+    <select id="piece" aria-label="Piece"></select>
+    <select id="hands" aria-label="Hands"><option value="both">Both hands</option><option value="RH">Right hand</option><option value="LH">Left hand</option></select>
+    <details class="popover" id="p-opts">
+      <summary class="btn sm">Options</summary>
+      <div class="pop">
+        <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
+        <label><input type="checkbox" id="countin" checked> Count-in</label>
+        <label><input type="checkbox" id="showline" checked> Moving line</label>
+      </div>
+    </details>
+    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn" data-off="Use mic">Use mic</button></span>
+    <span class="row pgo">
       <button class="btn" id="btn-listen">Listen</button>
       <button class="btn" id="btn-play">Play along</button>
       <button class="btn primary" id="btn-wait">Wait mode</button>
@@ -1374,7 +1403,7 @@ function sampleSource(name){
 const PLAY_TOL=0.34; // beats either side of a note that still count as on time
 
 // ---------- score renderer ----------
-function renderScore(svg,piece,width){
+function renderScore(svg,piece,width,scale=1){
   const S=10,LH=S*4,GAP=46,LEFT=34,RIGHT=8,parts=PARTS.filter(p=>piece.parts[p]),hands=['RH','LH'].filter(h=>piece.parts[h]),grand=hands.length===2;
   const sysH=(grand?LH*2+GAP:LH)+58;
   const perSys=Math.max(1,Math.min(4,Math.floor((width-LEFT-RIGHT)/230)));
@@ -1455,8 +1484,8 @@ function renderScore(svg,piece,width){
     }
   }
   h+=`<line class="playhead" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>`;
-  svg.setAttribute('viewBox',`0 0 ${width} ${H}`);svg.style.height=H+'px';svg.innerHTML=h;
-  return {pos,barPos};
+  svg.setAttribute('viewBox',`0 0 ${width} ${H}`);svg.style.height=H*scale+'px';svg.innerHTML=h;
+  return {pos,barPos,sysH};
 }
 
 // ---------- pieces library ----------
@@ -1537,7 +1566,16 @@ function applyNotation(text){
 function layoutPractice(force){
   if(!piece)return;
   const w=Math.max(320,scoreBox.clientWidth-10);
-  if(force||scoreSvg.dataset.w!==String(w)){scoreSvg.dataset.w=w;const r=renderScore(scoreSvg,piece,w);notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);}
+  // When practice holds the page to one screen, the score gets whatever height
+  // is left. If one line of music (both staves) does not fit in it, draw the
+  // score smaller until it does, down to 70%, so the left hand is never cut off.
+  const locked=document.body.classList.contains('lock-scroll')&&matchMedia('(min-height: 480px)').matches;
+  const room=locked?scoreBox.clientHeight-12:0,key=w+'x'+room;
+  if(force||scoreSvg.dataset.w!==key){
+    scoreSvg.dataset.w=key;let r=renderScore(scoreSvg,piece,w);
+    if(room>0&&r.sysH>room){const k=Math.max(.7,room/r.sysH);r=renderScore(scoreSvg,piece,w/k,k);}
+    notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);
+  }
   const kw=kbP.parentElement.clientWidth;if(force||!kbP.children.length||kbP.dataset.w!==String(kw)){kbP.dataset.w=kw;buildKeyboard(kbP,practiceKbRange[0],practiceKbRange[1],{names:true,onKey:practiceKey});}
 }
 pieceSel.addEventListener('change',()=>loadPiece(pieceSel.value));
@@ -1570,6 +1608,11 @@ $('btn-delete').addEventListener('click',()=>{
 // ---------- transport: listen mode and wait mode ----------
 const transport={mode:null,idx:-1,t0:0,raf:0,mist:0,need:new Set(),got:new Set(),bus:null};
 const handsSel=$('hands'),showKeys=$('showkeys'),showLine=$('showline');
+(function(){
+  const opts=$('p-opts');
+  document.addEventListener('pointerdown',e=>{if(opts.open&&!opts.contains(e.target))opts.open=false;});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&opts.open){opts.open=false;opts.querySelector('summary').focus();}});
+})();
 // ---------- playhead: a line that rides the beat across the score ----------
 function hidePlayhead(){if(playheadEl)playheadEl.setAttribute('visibility','hidden');}
 // beat is in piece beats and may be negative during the count-in, where the line parks on bar 1.
@@ -1592,8 +1635,16 @@ function highlight(idx){
   if(idx<0||!piece.onsets[idx])return;
   const o=piece.onsets[idx];let first=null;
   o.items.forEach(it=>{if(!wanted(it.part))return;const g=scoreSvg.querySelector(`g[data-id="${it.part}-${it.mi}-${it.ni}"]`);if(g){g.classList.add('cur');first=first||g;}});
-  if(first){const r=first.getBoundingClientRect(),b=scoreBox.getBoundingClientRect();if(r.top<b.top||r.bottom>b.bottom)scoreBox.scrollTop+=r.top-b.top-40;}
-  const mi=Math.floor(o.beat/piece.beatsPerBar);$('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
+  const mi=Math.floor(o.beat/piece.beatsPerBar);
+  if(first){
+    const b=scoreBox.getBoundingClientRect(),sv=scoreSvg.getBoundingClientRect(),vb=scoreSvg.viewBox.baseVal,bp=barPos[mi];
+    // The line the current bar sits on, both staves plus the bar number above
+    // and ledger notes below, in screen pixels.
+    const k=vb&&vb.height?sv.height/vb.height:1,top=bp?sv.top+(bp.top-26)*k:0,bot=bp?sv.top+(bp.bot+26)*k:0;
+    if(bp&&bot-top<=b.height){if(top<b.top||bot>b.bottom)scoreBox.scrollTop+=top-b.top;}
+    else{const r=first.getBoundingClientRect();if(r.top<b.top||r.bottom>b.bottom)scoreBox.scrollTop+=r.top-b.top-40;}
+  }
+  $('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
 }
 function setNow(text,cls){const el=$('p-now');el.textContent=text;el.className='now '+(cls||'');}
 function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();}
@@ -1836,7 +1887,7 @@ function stopMic(){
   if(micLoopId)clearInterval(micLoopId);micLoopId=null;
   if(micStream)micStream.getTracks().forEach(t=>t.stop());micStream=null;
   micAnalyser=null;micBuf=null;
-  micStatus('Mic off','');micBtns().forEach(b=>b.textContent='Listen with mic');
+  micStatus('Mic off','');micBtns().forEach(b=>{b.textContent=b.dataset.off||'Listen with mic';b.classList.remove('on');});
   updateMicChordHint();
 }
 async function connectMic(){
@@ -1855,7 +1906,7 @@ async function connectMic(){
   src.connect(micAnalyser);
   micArmed=true;micStableNote=null;micStableCount=0;
   micLoopId=setInterval(micTick,60);
-  micStatus('Listening','on');micBtns().forEach(b=>b.textContent='Stop mic');
+  micStatus('Listening','on');micBtns().forEach(b=>{b.textContent='Stop mic';b.classList.add('on');});
   updateMicChordHint();
 }
 micBtns().forEach(b=>b.addEventListener('click',connectMic));
