@@ -516,13 +516,18 @@ $('sound').addEventListener('change',()=>{if(activeTab==='ear')$('ear-sound-warn
 
 // ---------- notation parser: src/parse.js; play-along scoring: src/playalong.js ----------
 const {parsePiece,SHARPS,FLATS,PARTS}=IvoryParse;
-const {Scorer}=IvoryPlayAlong;
+const {Scorer,review}=IvoryPlayAlong;
 // Piano samples: embedded base64 in the claude.ai copy, fetched from ./audio/ on the site.
 function sampleSource(name){
   if(window.IVORY_SAMPLES&&window.IVORY_SAMPLES[name]){const bin=atob(window.IVORY_SAMPLES[name]);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return Promise.resolve(u.buffer);}
   return fetch('./audio/'+name+'.mp3').then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();});
 }
 const PLAY_TOL=0.34; // beats either side of a note that still count as on time
+const PLAY_TOL_EAR=0.4; // a little wider by mic: its timing is estimated, not read off a key press
+// How far behind the room the mic's verdict on a note can arrive: the attack has
+// to fill enough of an analysis window to show. Play along waits this long before
+// calling a note missed, so a note played on time is not closed before it is heard.
+const MIC_LAG=0.35;
 
 // ---------- score renderer ----------
 function renderScore(svg,piece,width,scale=1){
@@ -693,6 +698,7 @@ function loadPiece(id){
   if(id==='new')$('add-piece').open=true;
 }
 function applyNotation(text){
+  hideResult();
   piece=parsePiece(text);
   errsEl.textContent=piece.errors.join('\n');
   setBpm(piece.tempo);$('beats').value=String(piece.time[0]===6&&piece.time[1]===8?6:piece.time[0]);
@@ -714,7 +720,9 @@ function layoutPractice(force){
     scoreSvg.dataset.w=key;let r=renderScore(scoreSvg,piece,w);
     if(room>0&&r.sysH>room){const k=Math.max(.7,room/r.sysH);r=renderScore(scoreSvg,piece,w/k,k);}
     notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);
+    applyMarks();
   }
+  if(kbP.parentElement.hidden)return;
   const kw=kbP.parentElement.clientWidth;if(force||!kbP.children.length||kbP.dataset.w!==String(kw)){kbP.dataset.w=kw;buildKeyboard(kbP,practiceKbRange[0],practiceKbRange[1],{names:true,onKey:practiceKey});}
 }
 pieceSel.addEventListener('change',()=>loadPiece(pieceSel.value));
@@ -788,9 +796,10 @@ function highlight(idx){
 function setNow(text,cls){const el=$('p-now');el.textContent=text;el.className='now '+(cls||'');}
 function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();}
 function stopAll(){
-  cancelAnimationFrame(transport.raf);
+  cancelAnimationFrame(transport.raf);earListenStop();
   if(transport.bus){try{transport.bus.disconnect();}catch(e){}transport.bus=null;}
   const was=transport.mode;resetPractice();
+  if(was==='play')[...$('lights').children].forEach(l=>l.classList.remove('on'));
   if(was==='wait'||was==='play')setNow('Stopped');
 }
 // Schedules every note of the parts that pass pred, tied notes joined.
@@ -802,7 +811,7 @@ function playParts(pred,t0,spb,bus){
   });
 }
 function startListen(){
-  stopAll();stopMet();
+  stopAll();stopMet();hideResult();
   const c=audio(),bus=c.createGain();bus.connect(c.destination);transport.bus=bus;
   const bpm=met.bpm,spb=60/bpm,ci=$('countin').checked?piece.beatsPerBar:0;
   const t0=c.currentTime+0.1+ci*spb;transport.t0=t0;transport.mode='listen';
@@ -829,28 +838,77 @@ function lightWanted(next){
 }
 function playStatus(sc){const s=sc.summary();$('p-mist').textContent=`${s.hit} on time · ${s.missed} missed · ${s.wrong} wrong`;}
 function finishPlay(){
-  const s=transport.scorer.summary();
-  const st=store.pieceStats[pieceId]||{runs:0,last:0,at:0};st.runs++;st.last=s.missed+s.wrong;st.at=Date.now();store.pieceStats[pieceId]=st;save();
+  const sc=transport.scorer,s=sc.summary(),rv=review(sc,piece.beatsPerBar),ids=transport.onsetIds,spb=transport.spb;
+  const st=store.pieceStats[pieceId]||{runs:0,last:0,at:0},prevBest=st.best;
+  st.runs++;st.last=s.missed+s.wrong;st.at=Date.now();st.lastPct=rv.pct;st.best=Math.max(rv.pct,st.best||0);store.pieceStats[pieceId]=st;save();
   stopAll();
-  setNow(`On time ${s.hit} of ${s.total}, ${s.wrong} wrong`,s.missed+s.wrong===0?'good':'');
+  setNow('Finished',rv.pct>=90?'good':'');
+  // Colour every graded note on the sheet by how it went.
+  transport.marks=[];sc.results().forEach((r,j)=>(ids[j]||[]).forEach(({id,pitches})=>transport.marks.push({id,cls:pitches.every(m=>r.heard.includes(m))?'ok':'miss'})));
+  showResult(rv,sc,spb,prevBest);
 }
+// ---------- results after a Play along run ----------
+const pResult=$('p-result');
+function applyMarks(){
+  scoreSvg.querySelectorAll('g.ok,g.miss').forEach(g=>g.classList.remove('ok','miss'));
+  if(pResult.hidden||!transport.marks)return;
+  transport.marks.forEach(({id,cls})=>scoreSvg.querySelector(`g[data-id="${id}"]`)?.classList.add(cls));
+}
+function showResult(rv,sc,spb,prevBest){
+  const s=rv.summary,byEar=transport.byEar,tips=[];
+  $('pr-pct').textContent=rv.pct+'%';$('pr-grade').textContent=rv.grade;
+  $('pr-line').textContent=`${s.hit} of ${s.total} notes on time · ${s.missed} missed`+(byEar?' · heard by mic':` · ${s.wrong} wrong`);
+  $('pr-best').textContent=prevBest==null?'First scored run':rv.pct>prevBest?`New best (was ${prevBest}%)`:`Best ${prevBest}%`;
+  tips.push('<span class="k" style="background:var(--good)"></span> Green notes on the sheet were on time; <span class="k" style="background:var(--bad)"></span> red ones were missed.');
+  const ms=Math.round(Math.abs(rv.mean)*spb*1000);
+  if(rv.tendency==='late')tips.push(`You tend to come in late, about ${ms} ms behind the beat. Look one note ahead so the finger is already over its key.`);
+  else if(rv.tendency==='early')tips.push(`You tend to rush, about ${ms} ms ahead of the beat. Let the moving line lead and land with it.`);
+  else if(s.hit>=4)tips.push('Your timing was steady: no habit of rushing or dragging.');
+  if(rv.weakBars.length){const b=rv.weakBars,names=b.length===1?`Bar ${b[0]}`:`Bars ${b.slice(0,-1).join(', ')} and ${b[b.length-1]}`;
+    tips.push(`${names} had the most misses. Go through ${b.length===1?'it':'them'} in Wait mode, or play along a little slower.`);}
+  else if(rv.pct===100)tips.push('Every note on time.');
+  if(rv.pct>=90)tips.push('Ready for more: try it a few beats per minute faster.');
+  if(byEar&&s.missed)tips.push('By mic, a wrong key is not counted as wrong: it shows up as the right note missed. A quiet room helps the mic hear every note.');
+  $('pr-tips').innerHTML=tips.map(t=>`<li>${t}</li>`).join('');
+  kbP.parentElement.hidden=true;pResult.hidden=false;scoreBox.scrollTop=0;
+  layoutPractice(true);
+}
+function hideResult(){
+  if(pResult.hidden)return;
+  pResult.hidden=true;kbP.parentElement.hidden=false;transport.marks=null;
+  layoutPractice(true);
+}
+$('pr-again').addEventListener('click',()=>startPlayAlong());
+$('pr-close').addEventListener('click',()=>hideResult());
 function startPlayAlong(){
-  stopAll();stopMet();
-  const c=audio(),bus=c.createGain();bus.connect(c.destination);transport.bus=bus;
+  stopAll();stopMet();hideResult();
+  // With the mic on, the tablet stays silent: no click, no backing hand, since
+  // the mic would hear them as notes. The beat is shown instead: the count-in,
+  // the beat lights and the moving line.
+  const byEar=!!micStream;
+  const c=audio(),bus=c.createGain();bus.gain.value=byEar?0:1;bus.connect(c.destination);transport.bus=bus;
   const bpm=met.bpm,spb=60/bpm,bpb=piece.beatsPerBar,ci=$('countin').checked?bpb:0;
   const t0=c.currentTime+0.1+ci*spb;transport.t0=t0;transport.spb=spb;transport.mode='play';
-  for(let b=-ci;b<piece.totalBeats;b++)clickAt(t0+b*spb,((b%bpb)+bpb)%bpb===0,bus);
-  if(handsSel.value!=='both')playParts(p=>!wanted(p),t0,spb,bus);   // the other hand as backing
+  if(!byEar){
+    for(let b=-ci;b<piece.totalBeats;b++)clickAt(t0+b*spb,((b%bpb)+bpb)%bpb===0,bus);
+    if(handsSel.value!=='both')playParts(p=>!wanted(p),t0,spb,bus);   // the other hand as backing
+  }
   const acts=activeOnsets(),idxOfBeat=new Map(acts.map(a=>[a.o.beat,a.i]));
-  transport.scorer=new Scorer(acts.map(a=>{const ps=new Set();a.o.items.forEach(it=>{if(wanted(it.part)&&!it.n.rest&&!it.n.tiedFrom)it.n.pitches.forEach(p=>ps.add(p.m));});return {beat:a.o.beat,pitches:[...ps]};}),{tol:PLAY_TOL});
+  const graded=it=>wanted(it.part)&&!it.n.rest&&!it.n.tiedFrom;
+  transport.onsetIds=acts.map(a=>a.o.items.filter(graded).map(it=>({id:`${it.part}-${it.mi}-${it.ni}`,pitches:it.n.pitches.map(p=>p.m)})));
+  transport.scorer=new Scorer(acts.map(a=>{const ps=new Set();a.o.items.forEach(it=>{if(graded(it))it.n.pitches.forEach(p=>ps.add(p.m));});return {beat:a.o.beat,pitches:[...ps]};}),{tol:byEar?PLAY_TOL_EAR:PLAY_TOL});
+  transport.byEar=byEar;if(byEar)earListenStart();
   $('btn-play').textContent='Stop';
+  const lights=[...$('lights').children];let lastB=null;
   const tick=()=>{
     const beat=(c.currentTime-t0)/spb,sc=transport.scorer;
     movePlayhead(beat);
-    sc.update(beat);
+    const b=Math.floor(beat);
+    if(b!==lastB){lastB=b;lights.forEach(l=>l.classList.remove('on'));const li=lights[((b%bpb)+bpb)%bpb];if(li&&b<piece.totalBeats)li.classList.add('on');}
+    sc.update(byEar?beat-MIC_LAG/spb:beat);
     const next=sc.next();
     if(next){const i=idxOfBeat.get(next.beat);if(i!==undefined&&transport.idx!==i){transport.idx=i;highlight(i);lightWanted(next);}}
-    if(beat<0)setNow(`Count-in ${Math.ceil(-beat)}`);
+    if(beat<0)setNow(`Count-in ${Math.ceil(-beat)}`+(byEar?' · tablet silent, listening to your piano':''));
     playStatus(sc);
     if(sc.done()||beat>piece.totalBeats+1){finishPlay();return;}
     transport.raf=requestAnimationFrame(tick);
@@ -858,7 +916,7 @@ function startPlayAlong(){
   transport.raf=requestAnimationFrame(tick);
 }
 function startWait(){
-  stopAll();transport.mode='wait';transport.mist=0;$('btn-wait').textContent='Stop';
+  stopAll();hideResult();transport.mode='wait';transport.mist=0;$('btn-wait').textContent='Stop';
   transport.acts=activeOnsets();transport.k=-1;waitAdvance();
 }
 function waitAdvance(){
@@ -895,7 +953,7 @@ function practiceKey(m,source){
 $('btn-listen').addEventListener('click',()=>transport.mode==='listen'?stopAll():startListen());
 $('btn-wait').addEventListener('click',()=>transport.mode==='wait'?stopAll():startWait());
 $('btn-play').addEventListener('click',()=>transport.mode==='play'?stopAll():startPlayAlong());
-handsSel.addEventListener('change',()=>{stopAll();});
+handsSel.addEventListener('change',()=>{stopAll();hideResult();});
 
 // ---------- metronome ----------
 const met={bpm:72,beats:4,running:false,nextT:0,beat:0,timer:0,queue:[]};
@@ -1014,6 +1072,7 @@ function micNoteOn(m){
 }
 function micTick(){
   if(!micAnalyser||(activeTab!=='read'&&activeTab!=='practice'))return;
+  if(transport.mode==='play')return;   // Play along listens with earTick instead
   micAnalyser.getFloatTimeDomainData(micBuf);
   const freq=detectPitch(micBuf,ctx.sampleRate);
   if(freq==null){micArmed=true;micStableNote=null;micStableCount=0;return;}
@@ -1022,14 +1081,87 @@ function micTick(){
   micStableNote=m;
   if(micArmed&&micStableCount>=MIC_STABLE_FRAMES){micArmed=false;micNoteOn(m);}
 }
+// ---------- Play along by mic: listen for the notes the piece expects ----------
+// Picking the one pitch out of a sound (as above) fails once two notes ring at
+// once: a left-hand note held under the melody, a chord. Play along knows which
+// keys should sound next, so instead it watches each of those notes: the energy
+// at its pitch and first overtones, and a sudden rise there is that key struck.
+// This hears both hands and every note of a chord. It cannot name a wrong key,
+// so by mic a wrong key costs the right note, which goes unheard, as missed.
+let micSrc=null,earAn=null,earSpec=null,earLoop=null,earHist=new Map();
+// A strike: the note's level at least EAR_RISE times its lowest in the last
+// EAR_LOOKBACK frames (a strike spreads over a few overlapping frames), clearly
+// above the notes a semitone either side, and above a floor of room noise; and
+// a rise in its own pitch (its fundamental), which must carry at least
+// EAR_FUND_SHARE of the note's level; all of it still true one frame later.
+// These keep out the two ways another key fakes this one: its overtones landing
+// on this note's upper harmonics (no energy at this note's own pitch), and the
+// click of a hammer, which lifts every pitch for an instant but does not last.
+// After a strike the same note is not counted again for EAR_HOLD seconds.
+const EAR_RISE=1.5,EAR_LOOKBACK=4,EAR_OVER_NEIGHBOUR=1.3,EAR_FLOOR=Math.pow(10,-70/20),EAR_FUND_SHARE=0.1,EAR_HOLD=0.15;
+function earListenStart(){
+  earListenStop();if(!micSrc)return;
+  const c=audio();earAn=c.createAnalyser();earAn.fftSize=4096;earAn.smoothingTimeConstant=0;
+  micSrc.connect(earAn);earSpec=new Float32Array(earAn.frequencyBinCount);earHist=new Map();
+  earLoop=setInterval(earTick,30);
+}
+function earListenStop(){
+  if(earLoop)clearInterval(earLoop);earLoop=null;
+  if(earAn&&micSrc){try{micSrc.disconnect(earAn);}catch(e){}}earAn=null;
+}
+// The level at frequency f, read at its exact place between analysis bins rather
+// than as the loudest nearby bin: low notes sit only a few Hz from their
+// neighbours, and a nearest-bin reading could not tell C3 from B2 or C#3.
+function earLevel(f,binHz){
+  const x=f/binHz,b=Math.floor(x);if(b<1||b+1>=earSpec.length)return 0;
+  const a=Math.pow(10,earSpec[b]/20),c=Math.pow(10,earSpec[b+1]/20);return a+(c-a)*(x-b);
+}
+// How strongly note m sounds: its fundamental and next harmonics, weaker ones counting less.
+function earSalience(m,binHz){
+  const f=440*Math.pow(2,(m-69)/12);let s=0;
+  for(let k=1;k<=6;k++)s+=earLevel(k*f,binHz)/k;
+  return s;
+}
+// The note's own pitch: its fundamental, or its second harmonic when the
+// fundamental is below about 100 Hz, where a tablet's mic hears little. Another
+// key's overtones can land on this note's upper harmonics (F4 is F3's second),
+// but a key never puts energy below its own pitch, so a rise here is this key.
+function earFundamental(m,binHz){const f=440*Math.pow(2,(m-69)/12);return earLevel(f<100?2*f:f,binHz);}
+function earTick(){
+  const sc=transport.scorer;
+  if(transport.mode!=='play'||!transport.byEar||!sc||!earAn)return;
+  const c=ctx,now=c.currentTime,binHz=c.sampleRate/earAn.fftSize,spb=transport.spb;
+  earAn.getFloatFrequencyData(earSpec);
+  // The attack sits inside the analysis window; call it the middle of that window.
+  const t=now-earAn.fftSize/c.sampleRate/2,beat=(t-transport.t0)/spb;
+  // Track every pitch the piece uses, so each one's level is known before its turn comes.
+  sc.onsets.forEach(o=>o.pitches.forEach(m=>{if(!earHist.has(m))earHist.set(m,{h:[],hf:[],until:0,cand:null});}));
+  earHist.forEach((st,m)=>{
+    const s=earSalience(m,binHz),nb=Math.max(earSalience(m-1,binHz),earSalience(m+1,binHz));
+    const fu=earFundamental(m,binHz);
+    const low=st.h.length?Math.min(...st.h):0,lowF=st.hf.length?Math.min(...st.hf):0;
+    st.h.push(s);if(st.h.length>EAR_LOOKBACK)st.h.shift();
+    st.hf.push(fu);if(st.hf.length>EAR_LOOKBACK)st.hf.shift();
+    const ok=s>low*EAR_RISE&&s>nb*EAR_OVER_NEIGHBOUR&&s>EAR_FLOOR&&fu>lowF*EAR_RISE&&fu>s*EAR_FUND_SHARE;
+    if(now<st.until||!ok){st.cand=null;return;}
+    if(st.cand==null){st.cand=beat;return;}   // wait a frame: does it last?
+    const at=st.cand;st.cand=null;st.until=now+EAR_HOLD;
+    // Only a key the piece wants about now counts; anything else is not graded.
+    if(!sc.onsets.some(o=>!o.closed&&o.left.has(m)&&Math.abs(at-o.beat)<=sc.tol))return;
+    sc.press(m,at);
+    const el=keyEl(kbP,m);if(el){el.classList.remove('want');flash(el,'good',250);}
+    playStatus(sc);
+  });
+}
 function stopMic(){
   if(micLoopId)clearInterval(micLoopId);micLoopId=null;
   if(micStream)micStream.getTracks().forEach(t=>t.stop());micStream=null;
-  micAnalyser=null;micBuf=null;
+  micAnalyser=null;micBuf=null;earListenStop();micSrc=null;
   micStatus('Mic off','');micBtns().forEach(b=>{b.textContent=b.dataset.off||'Listen with mic';b.classList.remove('on');});
   updateMicChordHint();
 }
 async function connectMic(){
+  if(transport.mode==='play'){stopAll();setNow('Mic switched: press Play along to start again');}
   if(micStream){stopMic();return;}
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){micStatus('No mic in this browser','err');return;}
   try{
@@ -1039,7 +1171,7 @@ async function connectMic(){
     micStatus(msg.includes('NotAllowed')?'Microphone permission refused':'Microphone unavailable','err');
     return;
   }
-  const c=audio(),src=c.createMediaStreamSource(micStream);
+  const c=audio(),src=micSrc=c.createMediaStreamSource(micStream);
   micAnalyser=c.createAnalyser();micAnalyser.fftSize=2048;
   micBuf=new Float32Array(micAnalyser.fftSize);
   src.connect(micAnalyser);
@@ -1136,7 +1268,7 @@ function renderProgress(){
   ['treble','bass'].forEach(c=>{const g=$('grid-'+c);g.innerHTML='';POOL[c].ledger.forEach(m=>g.appendChild(cell(noteName(m),stat(m,c))));});
   renderEarProgress();
   const tb=$('piece-rows');tb.innerHTML='';
-  pieceList().forEach(p=>{const s=store.pieceStats[p.id];const tr=document.createElement('tr');tr.innerHTML=`<td>${titleOf(p.text)}</td><td>${s?s.runs:0}</td><td>${s?s.last:'–'}</td><td>${s?new Date(s.at).toLocaleDateString():'–'}</td>`;tb.appendChild(tr);});
+  pieceList().forEach(p=>{const s=store.pieceStats[p.id];const tr=document.createElement('tr');tr.innerHTML=`<td>${titleOf(p.text)}</td><td>${s?s.runs:0}</td><td>${s?s.last:'–'}</td><td>${s&&s.best!=null?s.best+'%':'–'}</td><td>${s?new Date(s.at).toLocaleDateString():'–'}</td>`;tb.appendChild(tr);});
 }
 $('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress in this browser? Your saved pieces stay.'))return;store.notes={};store.log=[];store.pieceStats={};store.ear={};save();renderProgress();});
 

@@ -38,7 +38,16 @@ are lost if you clear the browser's data for this site.
 - **Practice** — pieces on a grand staff. **Listen** plays at the metronome
   tempo with a count-in. **Play along** clicks through the piece at that tempo
   while you play and scores each note: on time within a third of a beat, missed,
-  or wrong; with one hand selected the app plays the other. **Wait mode** lights
+  or wrong; with one hand selected the app plays the other. With **Use mic** on,
+  Play along is silent instead — no click and no backing hand, since the mic
+  would hear them — and listens to your own piano, both hands and chords
+  included: the count-in, the beat lights and the moving line keep time. It
+  listens for the notes the piece expects next, so by mic a wrong key is not
+  called wrong; it shows up as the right note missed. When the run ends, a
+  results card takes the keyboard's place: the share of notes on time, a grade,
+  whether you tend to rush or drag, the bars with the most misses, and your
+  best score for the piece; the notes on the sheet turn green (on time) or red
+  (missed). Progress keeps each piece's best Play along score. **Wait mode** lights
   the next keys and waits until you play them, so you set the pace; it can also
   be graded with **Use mic** on a real piano, one note at a time — a
   chord (both hands landing together) can't be told apart by ear-only pitch

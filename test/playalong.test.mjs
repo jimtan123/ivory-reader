@@ -60,3 +60,35 @@ test('done once every onset is closed',()=>{
   s.update(1.4);
   assert.equal(s.done(),true);
 });
+
+test('results mark each onset hit, part or miss, with its timing',()=>{
+  const s=mk([{beat:0,pitches:[C4]},{beat:1,pitches:[C4,E4]},{beat:2,pitches:[D4]}]);
+  s.press(C4,0.1);s.press(C4,1.2);s.update(3);
+  const r=s.results();
+  assert.deepEqual(r.map(x=>x.status),['hit','part','miss']);
+  assert.deepEqual(r[1].heard,[C4]);
+  assert.ok(Math.abs(r[0].offset-0.1)<1e-9);
+  assert.equal(r[2].offset,null);
+});
+
+test('review grades the run and names the bars that went worst',()=>{
+  const {review}=globalThis.IvoryPlayAlong;
+  // 4/4, eight onsets over two bars; bar 2 is where it goes wrong
+  const s=mk([0,1,2,3,4,5,6,7].map(b=>({beat:b,pitches:[C4]})));
+  [0,1,2,3,4].forEach(b=>s.press(C4,b+0.2));   // all a little late
+  s.update(9);
+  const r=review(s,4);
+  assert.equal(r.pct,63);
+  assert.equal(r.grade,'Getting there');
+  assert.equal(r.tendency,'late');
+  assert.deepEqual(r.weakBars,[2]);
+});
+
+test('review calls steady timing steady and a clean run excellent',()=>{
+  const {review}=globalThis.IvoryPlayAlong;
+  const s=mk([0,1,2,3].map(b=>({beat:b,pitches:[C4]})));
+  [0.05,0.95,2.02,3].forEach(b=>s.press(C4,b));
+  s.update(5);
+  const r=review(s,4);
+  assert.equal(r.pct,100);assert.equal(r.grade,'Excellent');assert.equal(r.tendency,'steady');assert.deepEqual(r.weakBars,[]);
+});
