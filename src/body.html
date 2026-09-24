@@ -51,7 +51,7 @@
 <!-- HAND -->
 <section class="panel" id="panel-hand">
   <div class="controls">
-    <label>Position <select id="pos"><option value="c" selected>C position</option><option value="mc">Middle C position</option><option value="g">G position</option></select></label>
+    <label>Position <select id="pos"><option value="c" selected>C position</option><option value="mc">Middle C position</option><option value="f">F position</option><option value="g">G position</option></select></label>
   </div>
   <div class="card">
     <h2 id="pos-title">C position</h2>
@@ -59,6 +59,17 @@
     <div class="legend"><span class="L">Left hand</span><span class="R">Right hand</span></div>
     <div class="kbwrap"><div class="kb" id="kb-hand" role="group" aria-label="Keyboard showing finger numbers"></div></div>
     <p class="muted small" style="margin-top:10px">Fingers are numbered the same on both hands: thumb 1, index 2, middle 3, ring 4, little finger 5. Tap a key to hear it.</p>
+  </div>
+  <div class="card face">
+    <h3>F-A-C-E: find the notes by their spaces</h3>
+    <div class="face-grid">
+      <div><svg class="staff" id="face-treble" viewBox="0 0 300 132" role="img" aria-label="Treble staff: F, A, C and E in the four spaces"></svg>
+        <p class="small"><b>Right hand, treble staff.</b> The four spaces, bottom to top, spell F A C E. The bottom-space F is where the right thumb sits in F position.</p></div>
+      <div><svg class="staff" id="face-bass" viewBox="0 0 300 132" role="img" aria-label="Bass staff: F under the staff, then A, C and E in the bottom three spaces"></svg>
+        <p class="small"><b>Left hand, bass staff.</b> F hangs just under the staff, then A, C and E fill the bottom three spaces. The top space is G, so the bass spaces alone read A C E G.</p></div>
+    </div>
+    <p class="muted small">Why it works: F A C E skips every other letter, and skipping a letter on the staff jumps from one space to the next space, or one line to the next line. The same skip on lines: in <b>Morning Mood</b> the left hand plays F, A and C on three lines in a row, the 4th line, the top line and middle C's ledger line.</p>
+    <p class="muted small"><b>A hand position is named after one key.</b> Find that key first, put the finger the book prints on it, and the other four fingers fall on the next four white keys. Practice → <b>Options → Finger tips</b> shows this on every piece that has book fingers, or quizzes you on it.</p>
   </div>
   <div class="two">
     <div class="card">
@@ -131,6 +142,7 @@
         <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
         <label><input type="checkbox" id="countin" checked> Count-in</label>
         <label><input type="checkbox" id="showline" checked> Moving line</label>
+        <label>Finger tips <select id="tips"><option value="show">Show</option><option value="quiz">Quiz me</option><option value="off">Off</option></select></label>
       </div>
     </details>
     <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn" data-off="Use mic">Use mic</button></span>
@@ -141,11 +153,12 @@
     </span>
   </div>
   <div class="score" id="score"><svg id="score-svg"></svg></div>
-  <div class="pstatus"><span class="now" id="p-now"></span><span class="muted" id="p-where"></span><span class="muted" id="p-mist"></span></div>
+  <div class="pstatus"><span class="now" id="p-now"></span><span class="muted" id="p-where"></span><span class="muted" id="p-mist"></span><span class="hand-tip" id="p-hand"></span><button class="btn sm" id="btn-hands" hidden>Check hands</button></div>
   <p class="muted small" id="mic-chord-hint" hidden style="margin:2px 0 0">Mic grades one note at a time. Chords in this piece won't be scored by mic — tap them, use MIDI, or turn Hands to one hand to avoid them.</p>
   <div class="kbwrap"><div class="kb" id="kb-p" role="group" aria-label="Practice keyboard"></div></div>
   <details class="compact">
     <summary>How Listen, Play along and Wait mode differ</summary>
+    <p class="muted small" style="margin-top:8px"><b>Finger tips</b>, under <b>Options</b>, follow the finger numbers printed in your book. <b>Show</b> puts a finger on every note (the book's own numbers in bold, circled where a hand moves), names where each hand goes, and numbers your fingers on the keyboard. <b>Quiz me</b> shows only the book's numbers, like the paper: when a hand moves, work out where it goes, put it there, then press <b>Check hands</b> (or tap <i>where?</i> on the score). <b>Off</b> hides them all.</p>
     <p class="muted small" style="margin-top:8px"><b>Listen</b> plays the piece at the metronome tempo. <b>Play along</b> clicks through the piece at that tempo while you play; a key within a third of a beat counts as on time, and with one hand chosen the app plays the other. <b>Wait mode</b> lights the next keys and waits until you play every one of them. <b>Moving line</b> draws a line that rides the beat across the score in Listen and Play along; Wait mode has no clock, so it has no line. Slow is the point: the tempo is yours. Piano sound: Salamander Grand Piano by Alexander Holm, CC BY 3.0.</p>
   </details>
 
@@ -183,7 +196,7 @@
             <p>One line per setting, then one line per hand. Measures are separated by <code>|</code>.</p>
             <p><code>title: Ode to Joy</code> <code>time: 4/4</code> <code>key: C</code> <code>tempo: 72</code></p>
             <p><code>RH: E4/q E4/q F4/q G4/q | G4/q F4/q E4/q D4/q</code></p>
-            <p>Note = pitch/length. Pitch: letter, optional <code>#</code> or <code>b</code>, octave (middle C is <code>C4</code>). Length: <code>w</code> whole, <code>h</code> half, <code>q</code> quarter, <code>e</code> eighth, <code>s</code> sixteenth, add <code>.</code> for dotted. Rest: <code>r/q</code>. Chord: <code>[C4 E4 G4]/h</code>. Tie to the next note: <code>C4/h~</code>. Notes without an accidental follow the key signature; write <code>n</code> for a natural, as in <code>F4n</code>. Triplet: <code>3(C4/e D4/e E4/e)</code>, three in the time of two. A second voice on the same staff, such as a note held under a moving line, goes on its own line, <code>RH2:</code> or <code>LH2:</code>, with the same bars and rests where it is silent.</p>
+            <p>Note = pitch/length. Pitch: letter, optional <code>#</code> or <code>b</code>, octave (middle C is <code>C4</code>). Length: <code>w</code> whole, <code>h</code> half, <code>q</code> quarter, <code>e</code> eighth, <code>s</code> sixteenth, add <code>.</code> for dotted. Rest: <code>r/q</code>. Chord: <code>[C4 E4 G4]/h</code>. Tie to the next note: <code>C4/h~</code>. Notes without an accidental follow the key signature; write <code>n</code> for a natural, as in <code>F4n</code>. Triplet: <code>3(C4/e D4/e E4/e)</code>, three in the time of two. Finger number printed over a note: <code>E4@3/q</code>, or in a chord <code>[C3@5 G3@1]/w</code>; mark the ones the book prints and the app works out the rest. A second voice on the same staff, such as a note held under a moving line, goes on its own line, <code>RH2:</code> or <code>LH2:</code>, with the same bars and rests where it is silent.</p>
           </div>
         </details>
       </div>

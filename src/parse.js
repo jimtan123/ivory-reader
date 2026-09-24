@@ -59,13 +59,16 @@ function parsePiece(text){
   const beatsPerBar=piece.time[0]*4/piece.time[1];piece.beatsPerBar=beatsPerBar;
   // A second voice needs its first voice; if only the second is given, treat it as the first.
   ['RH','LH'].forEach(h=>{if(partLines[h+'2']&&!partLines[h]){piece.errors.push(`${h}2 needs an ${h} line too; reading it as ${h}.`);partLines[h]=partLines[h+'2'];delete partLines[h+'2'];}});
-  const tokRe=/^(?:\[([^\]]+)\]|([A-Ga-g][#bn]?\d)|(r))\/([whqes])(\.?)(~?)$/;
+  // A pitch may carry the finger the book prints over it: E4@3, [C3@5 G3@1].
+  const tokRe=/^(?:\[([^\]]+)\]|([A-Ga-g][#bn]?\d(?:@\d)?)|(r))\/([whqes])(\.?)(~?)$/;
   function pitch(tok){
-    const pm=tok.match(/^([A-Ga-g])([#bn]?)(\d)$/);if(!pm)return null;
+    const pm=tok.match(/^([A-Ga-g])([#bn]?)(\d)(?:@([1-5]))?$/);if(!pm)return null;
     const letter=pm[1].toUpperCase(),acc=pm[2],oct=+pm[3];
     const alter=acc==='#'?1:acc==='b'?-1:acc==='n'?0:(piece.key.alt[letter]||0);
     const show=acc==='n'?(piece.key.alt[letter]?'♮':''):acc==='#'&&piece.key.alt[letter]!==1?'♯':acc==='b'&&piece.key.alt[letter]!==-1?'♭':'';
-    return {m:midi(letter,oct)+alter,letter,oct,show};
+    const r={m:midi(letter,oct)+alter,letter,oct,show};
+    if(pm[4])r.finger=+pm[4];
+    return r;
   }
   PARTS.forEach(part=>{
     if(!partLines[part])return;
@@ -89,7 +92,7 @@ function parsePiece(text){
         const n={start,dur,dot:!!t[5],kind:t[4],tie:!!t[6],rest:!!t[3],pitches:[]};
         if(tup){n.tuplet={n:tup.n,first:false,last:false};tup.notes.push(n);}
         if(t[1]){t[1].trim().split(/\s+/).forEach(p=>{const r=pitch(p);if(r)n.pitches.push(r);else piece.errors.push(`${part} bar ${mi+1}: bad pitch "${p}" in chord.`);});}
-        else if(t[2]){const r=pitch(t[2]);if(r)n.pitches.push(r);}
+        else if(t[2]){const r=pitch(t[2]);if(r)n.pitches.push(r);else piece.errors.push(`${part} bar ${mi+1}: bad finger in "${tok}", use 1 to 5.`);}
         if(!n.rest&&!n.pitches.length){piece.errors.push(`${part} bar ${mi+1}: "${tok}" has no pitch.`);return;}
         n.pitches.sort((a,b)=>a.m-b.m);notes.push(n);start+=dur;
       });

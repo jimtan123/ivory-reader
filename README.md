@@ -25,8 +25,10 @@ are lost if you clear the browser's data for this site.
   playing the note on a MIDI piano, or **Listen with mic**, which answers by
   playing the note on any real piano, one note at a time, in a quiet room.
   Notes you get wrong come back more often.
-- **Hand position** — C, Middle C and G positions with a finger number on every
-  key, a posture checklist, and a drill that asks which finger plays a note.
+- **Hand position** — C, Middle C, F and G positions with a finger number on every
+  key, a posture checklist, and a drill that asks which finger plays a note. An
+  **F-A-C-E** card shows the four notes on both staves: the treble spaces, and
+  in the bass the F just under the staff plus the bottom three spaces.
 - **Ear training** — three listening drills, no staff involved. **Higher or
   lower** plays two notes and asks which way the second one went, with a gap you
   can narrow to a single semitone. **Name the interval** plays two notes, up,
@@ -49,6 +51,15 @@ are lost if you clear the browser's data for this site.
   count-in, moving line) under **Options**, so on a landscape tablet the score
   keeps both staves in view; if a line of music still doesn't fit, the score is
   drawn smaller, down to 70%, rather than cutting off the left hand.
+- **Finger tips** in Practice (**Options → Finger tips**) follow the finger
+  numbers the book prints. Each printed number pins the hand: finger 3 on A
+  means the thumb is on F, so every later note gets its finger until another
+  printed number moves the hand. **Show** writes a finger on every note (the
+  book's own in bold, circled where a hand moves), tags each move with where
+  the thumb goes, and numbers the five fingers on the keyboard, following the
+  piece as it plays. **Quiz me** shows only the book's numbers, like the paper,
+  and asks where the hand goes at each move; **Check hands** (or tapping
+  *where?* on the score) shows the answer. **Off** hides them.
 - **Progress** — accuracy per note, speed, and a run history per piece.
 - **Metronome and MIDI** in the bar along the bottom.
 - **Piano sound** is a sampled grand: the [Salamander Grand Piano](https://github.com/sfzinstruments/SalamanderGrandPiano)
@@ -82,7 +93,9 @@ A tuplet is the count, then the notes in round brackets: `3(C4/e D4/e E4/e)`
 is three eighths in the time of two (`5(...)` is five in the time of four).
 A second voice on the same staff, such as a note held under a moving line, goes
 on its own line, `RH2:` or `LH2:`, with the same number of bars and rests where
-it is silent. Lines starting with `#` are ignored, so a piece can carry notes
+it is silent. A finger number printed over a note goes after the pitch with `@`:
+`E4@3/q`, or `[C3@5 G3@1]/w` in a chord. Mark the ones the book prints; the app
+works out the rest. Lines starting with `#` are ignored, so a piece can carry notes
 to itself.
 
 ## The two copies
@@ -100,7 +113,8 @@ in one, then paste into the other's Notation box and press **Load and save**.
 `src/` holds the source; both copies are generated from it, so edit `src/` and
 never `index.html` directly. `src/parse.js` (the notation parser),
 `src/playalong.js` (the play-along scorer), `src/piano.js` (the sampled piano)
-and `src/ear.js` (the ear drills' pools and weighting) are plain scripts that the
+`src/ear.js` (the ear drills' pools and weighting) and `src/fingers.js` (hand
+positions from printed finger numbers) are plain scripts that the
 build inlines ahead of `src/script.html`; they have no DOM dependency so the
 tests can load them directly:
 

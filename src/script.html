@@ -92,7 +92,7 @@ function buildKeyboard(el,lo,hi,opts){
   whites.forEach(m=>{
     const d=document.createElement('div');d.className='w'+(m===60?' middle':'');d.dataset.m=m;
     if(opts.names!==false)d.textContent=noteName(m);
-    if(opts.fingers&&opts.fingers[m])opts.fingers[m].forEach((f,i)=>{d.innerHTML+=`<span class="fg ${f.hand}" style="top:${34+i*28}px">${f.n}</span>`;});
+    if(opts.fingers&&opts.fingers[m])opts.fingers[m].forEach((f,i)=>{d.innerHTML+=`<span class="fg ${f.hand}" style="bottom:${30+i*28}px">${f.n}</span>`;});
     el.appendChild(d);
   });
   whites.forEach((m,i)=>{
@@ -292,6 +292,8 @@ const POS={
      L:[[midi('C',3),5],[midi('D',3),4],[midi('E',3),3],[midi('F',3),2],[midi('G',3),1]],R:[[midi('C',4),1],[midi('D',4),2],[midi('E',4),3],[midi('F',4),4],[midi('G',4),5]]},
   mc:{title:'Middle C position',desc:'Both thumbs share middle C. The hands sit side by side, which is how many beginner duets and the first two-hand pieces are written.',
      L:[[midi('F',3),5],[midi('G',3),4],[midi('A',3),3],[midi('B',3),2],[midi('C',4),1]],R:[[midi('C',4),1],[midi('D',4),2],[midi('E',4),3],[midi('F',4),4],[midi('G',4),5]]},
+  f:{title:'F position',desc:'Right thumb on the F above middle C, the bottom space of the treble staff (the F of F-A-C-E). Left little finger on the F below middle C, the 4th line of the bass staff, so the left thumb lands on middle C. Merrily We Roll Along and Morning Mood in Practice use it. Finger 4 of the right hand covers B, which F major pieces play as B flat; neither of those two lessons plays it.',
+     L:[[midi('F',3),5],[midi('G',3),4],[midi('A',3),3],[midi('B',3),2],[midi('C',4),1]],R:[[midi('F',4),1],[midi('G',4),2],[midi('A',4),3],[midi('B',4),4],[midi('C',5),5]]},
   g:{title:'G position',desc:'Same hand shape as C position, moved up to G. Right thumb on the G above middle C, left little finger on the G below it. Pieces in this position often add an F sharp.',
      L:[[midi('G',2),5],[midi('A',2),4],[midi('B',2),3],[midi('C',3),2],[midi('D',3),1]],R:[[midi('G',4),1],[midi('A',4),2],[midi('B',4),3],[midi('C',5),4],[midi('D',5),5]]}
 };
@@ -300,10 +302,25 @@ function layoutHand(){
   const p=POS[posSel.value];
   $('pos-title').textContent=p.title;$('pos-desc').textContent=p.desc;
   const fingers={};p.L.forEach(([m,n])=>(fingers[m]=fingers[m]||[]).push({hand:'L',n}));p.R.forEach(([m,n])=>(fingers[m]=fingers[m]||[]).push({hand:'R',n}));
-  buildKeyboard(kbHand,posSel.value==='g'?midi('G',2):midi('C',3),posSel.value==='g'?midi('E',5):midi('C',5),{names:true,fingers});
+  buildKeyboard(kbHand,posSel.value==='g'?midi('G',2):midi('C',3),posSel.value==='g'||posSel.value==='f'?midi('E',5):midi('C',5),{names:true,fingers});
   $('fd-pos').textContent=p.title;fdNext();
 }
 posSel.addEventListener('change',layoutHand);
+// F-A-C-E, drawn once: whole notes with their names under the staff.
+function drawFace(svg,clefName,notes){
+  const S=12,top=30,left=16,width=268,c=CLEF[clefName];
+  let h='';
+  for(let i=0;i<5;i++)h+=`<line class="ln" x1="${left}" y1="${top+i*S}" x2="${left+width}" y2="${top+i*S}"/>`;
+  h+=`<text class="clef" x="${left+6}" y="${top+c.line*S}" font-size="${c.size}">${c.glyph}</text>`;
+  notes.forEach((m,i)=>{
+    const x=110+i*46,y=top+(dia(c.top)-dia(m))*S/2;
+    h+=`<ellipse class="note hollow" cx="${x}" cy="${y}" rx="7.2" ry="5" transform="rotate(-20 ${x} ${y})"/>`;
+    h+=`<text class="face-l" x="${x}" y="${top+4*S+34}" text-anchor="middle">${letterOf(m)}</text>`;
+  });
+  svg.innerHTML=h;
+}
+drawFace($('face-treble'),'treble',[midi('F',4),midi('A',4),midi('C',5),midi('E',5)]);
+drawFace($('face-bass'),'bass',[midi('F',2),midi('A',2),midi('C',3),midi('E',3)]);
 const staffFd=$('staff-fd'),fdFb=$('fd-feedback'),fingerBtns=[...document.querySelectorAll('#fingers button')];
 let fq=null,fdLocked=false,fdTimer=null;
 function fdNext(){
@@ -524,17 +541,61 @@ function sampleSource(name){
 }
 const PLAY_TOL=0.34; // beats either side of a note that still count as on time
 
+// ---------- finger tips: src/fingers.js works out where each hand sits ----------
+// Show: every note's finger (the book's printed ones bold), where each hand
+// moves, and the five fingers on the keyboard. Quiz me: only the book's printed
+// numbers, like the paper; work out where the hand goes, then Check hands.
+let tipsMode='show',handReveal=false;
+try{const v=localStorage.getItem(KEY+':tips');if(v==='show'||v==='quiz'||v==='off')tipsMode=v;}catch(e){}
+const hasHands=()=>!!(piece&&piece.hands&&(piece.hands.RH.length||piece.hands.LH.length));
+const keyLabel=m=>noteName(m).replace('#','♯');
+function posLabel(pos,long){
+  if(pos.stretch)return pos.keys.map((m,i)=>m==null?'':`${i+1} on ${keyLabel(m)}`).filter(Boolean).reverse().join(', ');
+  const m=pos.keys[0];return `thumb on ${keyLabel(m)}`+(long&&m===60?' (middle C)':'');
+}
+// SVG for one note's finger numbers, and the hand-position tag when the hand moves here.
+function fingerMarks(hand,n,x,ys,up,top,S,tips){
+  const fs=n.pitches.map((p,i)=>({f:p.finger||(tips==='show'?p.auto:null),book:!!p.finger,y:ys[i]})).filter(q=>q.f).sort((a,b)=>a.y-b.y);
+  let g='',edge;
+  if(hand==='RH'){
+    const y0=Math.min(top-7,(up?Math.min(...ys)-3.2*S:Math.min(...ys))-7);
+    fs.forEach((q,i)=>{q.ty=y0-(fs.length-1-i)*11;});edge=fs.length?fs[0].ty-15:y0-4;
+  }else{
+    const y0=Math.max(top+4*S+16,(up?Math.max(...ys):Math.max(...ys)+3.2*S)+15);
+    fs.forEach((q,i)=>{q.ty=y0+i*11;});edge=fs.length?fs[fs.length-1].ty+17:y0+4;
+  }
+  fs.forEach(q=>{
+    if(n.move)g+=`<circle class="fing-ring" cx="${x}" cy="${q.ty-4}" r="6.6"/>`;
+    g+=`<text class="fing${q.book?' book':''}" x="${x}" y="${q.ty}" text-anchor="middle">${q.f}</text>`;
+  });
+  if(n.move){
+    const pos=n.move,i=piece.hands[hand].indexOf(pos);
+    if(i>=0){
+      const who=hand==='RH'?'RH':'LH';
+      if(tips==='show')g+=`<text class="htag" x="${x-6}" y="${edge}">${who} ${posLabel(pos)}</text>`;
+      else{
+        const q=`${who} ${i?'moves':'starts'}: where?`,a=`${who} ${posLabel(pos)}`;
+        g+=`<g class="htag quiz" role="button"><rect x="${x-10}" y="${edge-13}" width="${Math.max(q.length,a.length)*6+10}" height="18" rx="4"/><text class="q" x="${x-5}" y="${edge}">${q}</text><text class="a" x="${x-5}" y="${edge}">${a}</text></g>`;
+      }
+    }
+  }
+  return g;
+}
+
 // ---------- score renderer ----------
 function renderScore(svg,piece,width,scale=1){
   const S=10,LH=S*4,GAP=46,LEFT=34,RIGHT=8,parts=PARTS.filter(p=>piece.parts[p]),hands=['RH','LH'].filter(h=>piece.parts[h]),grand=hands.length===2;
-  const sysH=(grand?LH*2+GAP:LH)+58;
+  // Finger numbers sit above the treble staff and below the bass staff, as the
+  // books print them, with a hand-position tag beyond them where a hand moves.
+  const tips=hasHands()?tipsMode:'off',PAD=tips==='off'?0:30;
+  const sysH=(grand?LH*2+GAP:LH)+58+PAD*2;
   const perSys=Math.max(1,Math.min(4,Math.floor((width-LEFT-RIGHT)/230)));
   const nSys=Math.ceil(piece.nBars/perSys);
   const H=nSys*sysH+10;
   let h='';const pos={};// id -> {x,y,part}
   const barPos=[];// bar index -> {x,w,top,bot}: the track the playhead runs along
   const clefFor=p=>piece.handOf(p)==='RH'?'treble':'bass';
-  function staffTop(sys,part){return 30+sys*sysH+(piece.handOf(part)==='LH'&&grand?LH+GAP:0);}
+  function staffTop(sys,part){return 30+PAD+sys*sysH+(piece.handOf(part)==='LH'&&grand?LH+GAP:0);}
   function yOf(part,letter,oct,top){const c=CLEF[clefFor(part)];return top+(diaLO(c.topLO[0],c.topLO[1])-diaLO(letter,oct))*S/2;}
   for(let sys=0;sys<nSys;sys++){
     const m0=sys*perSys,m1=Math.min(piece.nBars,m0+perSys);
@@ -594,6 +655,7 @@ function renderScore(svg,piece,width,scale=1){
               for(let f=0;f<flags;f++){const fy=sy2+(up?f*7:-f*7);g+=up?`<path class="flag" d="M${sx} ${fy} c 8 4, 9 10, 6 18 c 3 -7, 0 -11, -6 -14 z"/>`:`<path class="flag" d="M${sx} ${fy} c 8 -4, 9 -10, 6 -18 c 3 7, 0 11, -6 14 z"/>`;}
             }
             pos[id]={x,y:up?yBot:yTop,part,up,ys};
+            if(tips!=='off'&&!n.tiedFrom&&!voice2)g+=fingerMarks(piece.handOf(part),n,x,ys,up,top,S,tips);
             if(n.tie){const nx=x+ (ni+1<bar.notes.length?(bar.notes[ni+1].start-n.start)/piece.beatsPerBar*inner: mw-pad-(n.start/piece.beatsPerBar)*inner+14);const ty=up?yBot+6:yTop-6;const bend=up?8:-8;g+=`<path class="tie" d="M${x+4} ${ty} q ${(nx-x-8)/2} ${bend}, ${nx-x-8} 0"/>`;}
           }
           if(n.tuplet){
@@ -665,14 +727,96 @@ title: Jingle Bells (C position)
 time: 4/4
 key: C
 tempo: 84
-RH: E4/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q D4/q | E4/w
-LH: [C3 G3]/w | r/w | [C3 G3]/w | r/w
+RH: E4@3/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q D4/q | E4/w
+LH: [C3@5 G3@1]/w | r/w | [C3 G3]/w | r/w
 RH: F4/q F4/q F4/q F4/q | F4/q E4/q E4/q E4/q | E4/q D4/q D4/q E4/q | D4/h G4/h
 LH: [F3 G3]/w | r/w | [F3 G3]/w | r/w
 RH: E4/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q D4/q | E4/w
 LH: [C3 G3]/w | r/w | [C3 G3]/w | r/w
 RH: F4/q F4/q F4/q F4/q | F4/q E4/q E4/q E4/q | G4/q G4/q F4/q D4/q | C4/w
-LH: [F3 G3]/w | r/w | [F3 G3]/w | [C3 G3]/w`
+LH: [F3 G3]/w | r/w | [F3 G3]/w | [C3 G3]/w`,
+  // Lessons from the Music Theory for Young Children piano pages and a Level 1
+  // book, read from photos on 2026-09-24. A number after @ is the finger the
+  // page prints over that note; the app works out the rest from those.
+  'b:merrily':`# Merrily We Roll Along, lesson page 25. No key signature, but both hands sit in F position:
+# RH thumb on the F above middle C (F-A-C-E: the bottom space), LH little finger on the F below it.
+# Bar 4's two Cs are pencilled in on the page; the printed fingers there are 3 and 5.
+title: Merrily We Roll Along
+time: 4/4
+key: C
+tempo: 88
+RH: A4@3/q G4@2/q F4@1/q G4/q | A4/q A4/q A4/h | G4@2/q G4/q G4/h | A4@3/q C5@5/q C5/h
+LH: [F3@5 C4@1]/w | [F3 C4]/w | C4@1/w | [F3 C4]/w
+RH: A4@3/q G4/q F4/q G4/q | A4/q A4/q A4/h | G4@2/q G4/q A4/q G4/q | F4@1/w
+LH: [F3@5 C4@1]/w | [F3 C4]/w | C4/w | [F3@5 A3@3]/w`,
+  'b:baa':`# Baa Baa Black Sheep, lesson page 21. The hands take turns. RH in C position with an F sharp
+# (the sharp in bar 2 is pencilled in by the teacher); LH thumb on middle C.
+title: Baa Baa Black Sheep
+time: 4/4
+key: C
+tempo: 100
+RH: r/h D4@2/q D4/q | E4@3/e F#4/e G4/e E4/e D4/h | C4@1/q C4/q r/h | r/w
+LH: G3@4/q G3/q r/h | r/w | r/h B3@2/q B3/q | A3/q A3/q G3/h
+RH: D4@2/q D4/e D4/e C4/q C4/e C4/e | r/w | D4@2/q D4/e D4/e C4/e D4/e E4/e C4/e | r/w
+LH: r/w | B3@2/q B3/e B3/e A3/q A3/q | r/w | B3@2/q A3/e A3/e G3/h`,
+  'b:oldman':`# This Old Man, lesson page 19. RH starts with the thumb on D (4 on G), then the circled 1
+# in bar 5 moves it down to C position. LH thumb stays on middle C.
+# The last bar's LH middle C is in brackets on the page: optional, the right thumb plays it too.
+title: This Old Man
+time: 4/4
+key: C
+tempo: 88
+RH: G4@4/q E4/q G4/h | G4/q E4/q G4/h | A4/q G4/q F4/q E4/q | D4@1/q E4/q F4/q E4/e F4/e
+LH: C4@1/w | C4/w | F3/w | G3/w
+RH: G4@4/q C4@1/q C4/e C4/e C4/q | C4/e D4/e E4/e F4/e G4/h | G4/q D4/q D4/q F4/q | E4/q D4/q C4/h
+LH: r/w | r/w | G3@4/w | A3/q B3/q C4/h`,
+  'b:hotcross':`# Hot Cross Buns, lesson pages 22-23, played as one piece. RH in D position (D E F# G A);
+# LH thumb on the D above middle C. Page 23's LH C sharp is pencilled in by the teacher.
+title: Hot Cross Buns
+time: 4/4
+key: C
+tempo: 88
+RH: A4@5/q r/q D4@1/h | A4/q r/q D4/h | A4@5/e G4/e F#4/e E4/e D4/e E4/e F#4/e G4/e | A4@5/q r/q D4@1/h
+LH: r/q A3@4/q r/h | r/q A3/q r/h | r/w | r/q A3@4/q r/h
+RH: A4@5/e A4/e A4/e A4/e G4/q G4/q | F#4/e F#4/e F#4/e F#4/e E4/h | A4@5/e G4/e F#4/e E4/e D4/e E4/e F#4/e G4/e | A4@5/q r/q D4@1/h
+LH: A3@4/h C#4@2/h | D4@1/h A3@4/h | r/w | r/q A3@4/q r/h`,
+  'b:swan':`# Swan Lake (Tchaikovsky), lesson page 39. RH starts in E position (thumb on E, 5 on B);
+# bar 6's circled 5 moves it to C position ("change G!" on the page).
+# LH moves between a third on E-G (5-3) and a stretched third on A-C (2-1).
+title: Swan Lake
+time: 4/4
+key: C
+tempo: 72
+RH: B4@5/w | E4@1/q F#4/q G4/q A4/q | B4@5/h. G4@3/q | B4/h. G4/q
+LH: [E3@5 G3@3]/w | [A3@2 C4@1]/w | [E3@5 G3@3]/w~ | [E3 G3]/w
+RH: B4@5/h. E4@1/q | G4@5/q E4@3/q C4@1/q G4@5/q | E4@3/w~ | E4/w
+LH: [E3@5 G3@3]/w | [A3@2 C4@1]/h r/h | [E3@5 G3@3]/w~ | [E3 G3]/w`,
+  'b:morning':`# Morning Mood (Grieg, Peer Gynt), lesson page 26. RH in F position all the way (5 on C).
+# LH: F and A held for the first four bars, then the circled 2 moves the thumb up to D,
+# and the circled 3-5 brings it back for the last chord. F, A and C in the LH sit on three
+# lines in a row: the 4th line, the top line, and middle C's ledger line.
+title: Morning Mood
+time: 3/4
+key: C
+tempo: 96
+RH: C5@5/q A4/q G4/q | F4/q G4/q A4/q | C5@5/q A4/q G4/q | F4/q G4/e A4/e G4/e A4/e
+LH: [F3@5 A3@3]/h.~ | [F3 A3]/h. | [F3@5 A3@3]/h.~ | [F3 A3]/h.
+RH: C5@5/h. | A4/h. | C5/q A4/q G4/q | F4/h.
+LH: C4@2/q A3@4/q C4/q | D4@1/q A3@4/q D4/q | C4@2/h. | [F3@5 A3@3]/h.`,
+  'b:daisy':`# Daisy Belle, Level 1 page 44. Middle C position: both thumbs on middle C.
+# The page says Allegro; 100 is a comfortable start, raise it with the metronome.
+title: Daisy Belle
+time: 3/4
+key: C
+tempo: 100
+RH: G4@5/h. | E4@3/h. | C4@1/h. | r/h. | r/h. | r/h. | r/h. | r/h.
+LH: r/h. | r/h. | r/h. | G3@4/h. | A3@3/q B3/q C4/q | A3/h C4/q | G3@4/h.~ | G3/h.
+RH: D4@2/h. | G4@5/h. | E4@3/h. | C4/h. | r/h. | D4@2/h E4/q | D4/h.~ | D4/h E4@3/q
+LH: r/h. | r/h. | r/h. | r/h. | A3@3/q B3/q C4/q | r/h. | r/h. | r/h.
+RH: F4@4/q E4/q D4/q | G4/h E4/q | D4/q C4/h~ | C4/h D4/q | E4/h C4/q | r/h. | r/h. | r/h.
+LH: r/h. | r/h. | r/h. | r/h. | r/h. | A3@3/h C4/q | B3/q A3/h~ | A3/h G3@4/q
+RH: C4@1/h E4/q | D4/h r/q | C4/h E4/q | D4/q E4/q F4/q | G4/q E4/q C4/q | D4/h r/q | C4/h.~ | C4/h.
+LH: r/h. | r/h G3/q | r/h. | r/h. | r/h. | r/h G3/q | r/h. | r/h.`
 };
 const pieceSel=$('piece'),notationTa=$('notation'),errsEl=$('notation-errs'),scoreSvg=$('score-svg'),scoreBox=$('score'),kbP=$('kb-p');
 let piece=null,pieceId=null,notePos={},barPos=[],playheadEl=null,practiceKbRange=null;
@@ -694,9 +838,11 @@ function loadPiece(id){
 }
 function applyNotation(text){
   piece=parsePiece(text);
+  piece.hands=IvoryFingers.plan(piece);handReveal=false;
   errsEl.textContent=piece.errors.join('\n');
   setBpm(piece.tempo);$('beats').value=String(piece.time[0]===6&&piece.time[1]===8?6:piece.time[0]);
   const all=[];PARTS.forEach(p=>(piece.parts[p]||[]).forEach(b=>b.notes.forEach(n=>n.pitches.forEach(x=>all.push(x.m)))));
+  ['RH','LH'].forEach(h=>piece.hands[h].forEach(pos=>pos.keys.forEach(m=>{if(m!=null)all.push(m);})));   // room for the whole hand
   const lo=all.length?Math.min(...all):48,hi=all.length?Math.max(...all):72;
   practiceKbRange=[Math.floor(lo/12)*12,Math.ceil((hi+1)/12)*12];
   layoutPractice(true);
@@ -715,8 +861,57 @@ function layoutPractice(force){
     if(room>0&&r.sysH>room){const k=Math.max(.7,room/r.sysH);r=renderScore(scoreSvg,piece,w/k,k);}
     notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);
   }
-  const kw=kbP.parentElement.clientWidth;if(force||!kbP.children.length||kbP.dataset.w!==String(kw)){kbP.dataset.w=kw;buildKeyboard(kbP,practiceKbRange[0],practiceKbRange[1],{names:true,onKey:practiceKey});}
+  const kw=kbP.parentElement.clientWidth;if(force||!kbP.children.length||kbP.dataset.w!==String(kw)){kbP.dataset.w=kw;buildKeyboard(kbP,practiceKbRange[0],practiceKbRange[1],{names:true,onKey:practiceKey});showHandMap();}
 }
+// The beat the practice cursor is on: the current step, or the start when idle.
+const curBeat=()=>piece&&transport.idx>=0&&piece.onsets[transport.idx]?piece.onsets[transport.idx].beat:0;
+const handWanted=h=>handsSel.value==='both'||handsSel.value===h;
+// Finger numbers on the practice keyboard for where each hand sits at this beat.
+function showHandMap(beat){
+  kbP.querySelectorAll('.fg.hm').forEach(x=>x.remove());
+  if(!hasHands()||tipsMode==='off'||(tipsMode==='quiz'&&!handReveal))return;
+  if(beat==null)beat=curBeat();
+  ['LH','RH'].forEach(h=>{
+    if(!handWanted(h))return;
+    const pos=IvoryFingers.at(piece.hands[h],beat);if(!pos)return;
+    pos.keys.forEach((m,i)=>{
+      const el=m==null?null:keyEl(kbP,m);if(!el)return;
+      const k=el.querySelectorAll('.fg').length,sp=document.createElement('span');
+      sp.className='fg hm '+(h==='LH'?'L':'R');sp.textContent=i+1;
+      // below the black keys on a white key, near the tip of a black one
+      if(el.classList.contains('b'))sp.style.bottom=(8+k*24)+'px';else sp.style.bottom=(30+k*28)+'px';
+      el.appendChild(sp);
+    });
+  });
+}
+// The line under the score that says where the hands go: at the start, and
+// wherever a hand moves. In Quiz me it asks instead, and Check hands answers.
+function handTip(beat,idle){
+  const el=$('p-hand'),btn=$('btn-hands');
+  btn.hidden=!(tipsMode==='quiz'&&hasHands());btn.textContent=handReveal?'Hide hands':'Check hands';
+  el.textContent='';el.className='hand-tip';
+  if(tipsMode==='off'||!hasHands())return;
+  const moving=['RH','LH'].filter(h=>handWanted(h)&&piece.hands[h].length&&(idle||piece.hands[h].some(p=>Math.abs(p.beat-beat)<1e-9)));
+  if(!moving.length)return;
+  const word=h=>h==='RH'?'Right hand':'Left hand';
+  el.classList.toggle('move',!idle);
+  if(tipsMode==='show')el.textContent=moving.map(h=>`${word(h)}: ${posLabel(IvoryFingers.at(piece.hands[h],beat),true)}`).join(' · ');
+  else if(!handReveal)el.textContent=(idle?'Where do your hands start?':moving.map(word).join(' and ')+(moving.length>1?' move.':' moves.'))+' Place them, then Check hands.';
+}
+// A new step: hands that move here are hidden again in Quiz me, and the tips follow.
+function handStep(beat){
+  if(tipsMode==='quiz'&&hasHands()&&['RH','LH'].some(h=>handWanted(h)&&piece.hands[h].some(p=>Math.abs(p.beat-beat)<1e-9)))handReveal=false;
+  showHandMap(beat);handTip(beat,false);
+}
+$('btn-hands').addEventListener('click',()=>{handReveal=!handReveal;showHandMap();handTip(curBeat(),transport.idx<0);});
+const tipsSel=$('tips');tipsSel.value=tipsMode;
+tipsSel.addEventListener('change',()=>{
+  tipsMode=tipsSel.value;handReveal=false;
+  try{localStorage.setItem(KEY+':tips',tipsMode);}catch(e){}
+  layoutPractice(true);showHandMap();handTip(curBeat(),transport.idx<0);
+});
+// Quiz me: tap a "where?" tag on the score to see the answer.
+scoreSvg.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('.htag.quiz');if(t)t.classList.toggle('shown');});
 pieceSel.addEventListener('change',()=>loadPiece(pieceSel.value));
 $('btn-load').addEventListener('click',()=>{
   const text=notationTa.value;
@@ -786,7 +981,7 @@ function highlight(idx){
   $('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
 }
 function setNow(text,cls){const el=$('p-now');el.textContent=text;el.className='now '+(cls||'');}
-function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();}
+function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();showHandMap(0);handTip(0,true);}
 function stopAll(){
   cancelAnimationFrame(transport.raf);
   if(transport.bus){try{transport.bus.disconnect();}catch(e){}transport.bus=null;}
@@ -814,7 +1009,7 @@ function startListen(){
     const beat=(c.currentTime-t0)/spb;
     movePlayhead(beat);
     if(beat<0){setNow(`Count-in ${Math.ceil(-beat)}`);}
-    else{while(k<acts.length-1&&acts[k+1].o.beat<=beat)k++;if(acts[k]&&transport.idx!==acts[k].i){transport.idx=acts[k].i;highlight(transport.idx);setNow('Listening');}}
+    else{while(k<acts.length-1&&acts[k+1].o.beat<=beat)k++;if(acts[k]&&transport.idx!==acts[k].i){transport.idx=acts[k].i;highlight(transport.idx);handStep(acts[k].o.beat);setNow('Listening');}}
     if(beat>piece.totalBeats+1){stopAll();setNow('Done');return;}
     transport.raf=requestAnimationFrame(tick);
   };
@@ -849,7 +1044,7 @@ function startPlayAlong(){
     movePlayhead(beat);
     sc.update(beat);
     const next=sc.next();
-    if(next){const i=idxOfBeat.get(next.beat);if(i!==undefined&&transport.idx!==i){transport.idx=i;highlight(i);lightWanted(next);}}
+    if(next){const i=idxOfBeat.get(next.beat);if(i!==undefined&&transport.idx!==i){transport.idx=i;highlight(i);lightWanted(next);handStep(next.beat);}}
     if(beat<0)setNow(`Count-in ${Math.ceil(-beat)}`);
     playStatus(sc);
     if(sc.done()||beat>piece.totalBeats+1){finishPlay();return;}
@@ -874,6 +1069,7 @@ function waitAdvance(){
   const names=[...transport.need].sort((x,y)=>x-y).map(noteName).join(' + ');
   setNow(names);$('p-mist').textContent=transport.mist?`${transport.mist} wrong`:'';
   if(showKeys.checked)transport.need.forEach(m=>keyEl(kbP,m)?.classList.add('want'));
+  handStep(a.o.beat);
   updateMicChordHint();
 }
 function practiceKey(m,source){
@@ -1067,7 +1263,8 @@ Rules of the notation:
 - Triplet or other tuplet: the count, then the notes in round brackets: 3(C4/e D4/e E4/e) is three eighths in the time of two. Rests and chords may sit inside.
 - Two voices on one staff (for example a held note under a moving line, or a chord held while other notes move): write the moving line on RH or LH and the held voice on RH2 or LH2, with exactly the same number of bars, using rests where that voice is silent. Give rh2 or lh2 only when the page really has two voices.
 - Leave out grace notes and ornaments.
-- Keep beams as separate eighth notes. Ignore fingering numbers, dynamics, slurs, lyrics, chord symbols, repeat signs and pedal marks.
+- Finger numbers printed over or under a note (1 to 5, sometimes circled): put @ and the number straight after that pitch, e.g. E4@3/q, or inside a chord [C3@5 G3@1]/w. For a chord the numbers stack in pitch order, the top number belonging to the top note. Only write the numbers that are printed.
+- Keep beams as separate eighth notes. Ignore dynamics, slurs, lyrics, chord symbols, repeat signs and pedal marks.
 
 Reply with only a JSON object of this shape, no commentary:
 {"title":"name printed on the page or Untitled","time":"4/4","key":"C","tempo":72,"rh":"E4/q E4/q F4/q G4/q | G4/q F4/q E4/q D4/q","lh":"C3/h G3/h | C3/h G3/h","rh2":"","lh2":"","notes":"one sentence on anything you were unsure about, or empty"}
