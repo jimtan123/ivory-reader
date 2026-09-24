@@ -1,7 +1,8 @@
 # Ivory Reader
 
-A piano trainer for beginners: read notes, learn where your hands go, practise
-with a metronome. It installs on a phone or tablet and works with no signal.
+A piano trainer for beginners: read notes, learn where your hands go, train your
+ear, practise with a metronome. It installs on a phone or tablet and works with
+no signal.
 
 **Live app:** https://jimtan123.github.io/ivory-reader/
 
@@ -26,16 +27,28 @@ are lost if you clear the browser's data for this site.
   Notes you get wrong come back more often.
 - **Hand position** — C, Middle C and G positions with a finger number on every
   key, a posture checklist, and a drill that asks which finger plays a note.
+- **Ear training** — three listening drills, no staff involved. **Higher or
+  lower** plays two notes and asks which way the second one went, with a gap you
+  can narrow to a single semitone. **Name the interval** plays two notes, up,
+  down or together, and you pick the interval from a set that starts at fifths
+  and octaves. **Name the note** plays a reference C and then a mystery note,
+  which you find on the keyboard, over five keys, one octave or two, white keys
+  or chromatic. A wrong answer is revealed and played again. Whatever you keep
+  missing is asked more often, the same way the reading flashcards work.
 - **Practice** — pieces on a grand staff. **Listen** plays at the metronome
   tempo with a count-in. **Play along** clicks through the piece at that tempo
   while you play and scores each note: on time within a third of a beat, missed,
   or wrong; with one hand selected the app plays the other. **Wait mode** lights
   the next keys and waits until you play them, so you set the pace; it can also
-  be graded with **Listen with mic** on a real piano, one note at a time — a
+  be graded with **Use mic** on a real piano, one note at a time — a
   chord (both hands landing together) can't be told apart by ear-only pitch
   detection, so those steps are left for a tap or a MIDI piano instead. A
-  **moving line** rides the beat across the score in Listen and Play along; its
-  checkbox turns it off, and Wait mode has no clock so it has no line.
+  **moving line** rides the beat across the score in Listen and Play along; it
+  can be turned off under **Options**, and Wait mode has no clock so it has no
+  line. The controls sit in one row, with the set-once settings (next keys,
+  count-in, moving line) under **Options**, so on a landscape tablet the score
+  keeps both staves in view; if a line of music still doesn't fit, the score is
+  drawn smaller, down to 70%, rather than cutting off the left hand.
 - **Progress** — accuracy per note, speed, and a run history per piece.
 - **Metronome and MIDI** in the bar along the bottom.
 - **Piano sound** is a sampled grand: the [Salamander Grand Piano](https://github.com/sfzinstruments/SalamanderGrandPiano)
@@ -85,10 +98,11 @@ in one, then paste into the other's Notation box and press **Load and save**.
 ## Building
 
 `src/` holds the source; both copies are generated from it, so edit `src/` and
-never `index.html` directly. `src/parse.js` (the notation parser) and
-`src/playalong.js` (the play-along scorer) are plain scripts that the build
-inlines ahead of `src/script.html`; they have no DOM dependency so the tests can
-load them directly:
+never `index.html` directly. `src/parse.js` (the notation parser),
+`src/playalong.js` (the play-along scorer), `src/piano.js` (the sampled piano)
+and `src/ear.js` (the ear drills' pools and weighting) are plain scripts that the
+build inlines ahead of `src/script.html`; they have no DOM dependency so the
+tests can load them directly:
 
 ```sh
 node --test test/*.test.mjs
@@ -105,3 +119,7 @@ node --test test/*.test.mjs
 
 When you change any cached file, bump `VERSION` in `sw.js` so installed copies
 pick the new one up.
+
+Both checks run on every pull request (`.github/workflows/ci.yml`): the tests,
+and a rebuild that fails if `index.html` no longer matches `src/`, which is how
+a commit that edits one without the other gets caught.

@@ -45,6 +45,11 @@
 }
 @supports (padding: max(0px)){:root{--gx:max(16px, env(safe-area-inset-left))}}
 *{box-sizing:border-box}
+/* Several layout rules below set display on elements the app hides with the
+   hidden property (a control that does not apply to the current drill, the
+   letter row, the mic row); without this they would out-specify the browser's
+   own [hidden] rule and stay on screen. */
+[hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:17px;line-height:1.45;padding:0 var(--gx);padding-block:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 .app{min-height:100dvh;display:flex;flex-direction:column;max-width:1100px;margin:0 auto}
@@ -141,6 +146,27 @@ summary{cursor:pointer;font-weight:600;font-size:15px}
 .mnem div{font-size:15px}
 .mnem b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 
+/* ear training */
+.earstatus{text-align:center;font-size:15px;color:var(--muted);min-height:22px}
+.earstatus b{color:var(--ink)}
+.choices{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0 4px}
+.choices button{flex:0 1 auto;min-width:84px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;line-height:1.2}
+.choices button b{font-family:var(--font-display);font-size:19px;font-weight:700}
+.choices button span{font-size:12px;color:var(--muted)}
+.choices button.good{background:var(--good);border-color:var(--good);color:#fff}
+.choices button.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.choices button.good span,.choices button.bad span{color:rgba(255,255,255,.85)}
+/* Two answers instead of thirteen: make them targets worth their odds. */
+.choices.two-up button{min-width:150px;padding:14px 18px}
+.choices.two-up button b{font-size:21px}
+@media (max-width: 760px){
+  .choices{gap:6px}
+  .choices button{min-width:74px;padding:10px 6px}
+  .choices button span{display:none}
+  .choices button b{font-size:18px}
+  .choices.two-up button{flex:1 1 0;min-width:0}
+}
+
 /* hand tab */
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;margin:8px 0 4px}
 .legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
@@ -162,6 +188,19 @@ summary{cursor:pointer;font-weight:600;font-size:15px}
 .pstatus .now{font-family:var(--font-display);font-size:20px;font-weight:700}
 .pstatus .now.good{color:var(--good)}.pstatus .now.bad{color:var(--bad)}
 .errs{color:var(--bad);font-size:14px;white-space:pre-wrap}
+/* practice toolbar: one row. Options holds the set-once settings. */
+.ptools{gap:8px 10px}
+.ptools #piece{max-width:240px;min-width:0}
+.ptools .pgo{margin-left:auto;gap:8px}
+/* the button says whether the mic is on; the pill only shows up to explain a failure */
+.ptools .mic-pill:not(.err){display:none}
+.mic-btn.on::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:1px}
+details.popover{position:relative;margin:0;border:0;padding:0}
+details.popover>summary{list-style:none;display:inline-block}
+details.popover>summary::-webkit-details-marker{display:none}
+details.popover>summary::after{content:"\25BE";margin-left:6px;font-size:11px}
+details.popover[open]>summary{background:var(--soft)}
+details.popover .pop{position:absolute;top:calc(100% + 6px);left:0;z-index:20;display:grid;gap:12px;min-width:210px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .photo{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
 .photo img{max-width:220px;max-height:180px;border-radius:6px;border:1px solid var(--line)}
 .notation-help{font-size:14px;color:var(--muted)}
@@ -259,6 +298,15 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   body.lock-scroll #panel-practice.active>.score{flex:1 1 auto;min-height:70px;max-height:none}
   body.lock-scroll #panel-practice.active>details{display:none}
 }
+/* Practice on a landscape tablet: every row above the score is height the
+   bass staff does not get, so the header and toolbar sit as tight as they can. */
+@media (orientation: landscape) and (min-width: 640px) and (min-height: 480px){
+  body.lock-scroll header.top{padding-block:4px 0}
+  body.lock-scroll nav{margin-bottom:6px}
+  body.lock-scroll nav button{padding-block:6px}
+  body.lock-scroll #panel-practice .controls{margin-bottom:6px}
+  body.lock-scroll .pstatus{margin:4px 0 0;min-height:22px}
+}
 /* focus mode: hide secondary chrome and give the keyboard more room */
 .app.focus h1 small,.app.focus #mic-row,.app.focus details.compact{display:none}
 .app.focus header.top{padding-block:6px 4px}
@@ -298,6 +346,7 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   <nav role="tablist">
     <button role="tab" aria-selected="true" data-tab="read" id="tab-read"><span class="lg">Read notes</span><span class="sm-l">Read</span></button>
     <button role="tab" aria-selected="false" data-tab="hand" id="tab-hand"><span class="lg">Hand position</span><span class="sm-l">Hands</span></button>
+    <button role="tab" aria-selected="false" data-tab="ear" id="tab-ear"><span class="lg">Ear training</span><span class="sm-l">Ear</span></button>
     <button role="tab" aria-selected="false" data-tab="practice" id="tab-practice">Practice</button>
     <button role="tab" aria-selected="false" data-tab="progress" id="tab-progress">Progress</button>
   </nav>
@@ -375,16 +424,59 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
   </div>
 </section>
 
+<!-- EAR -->
+<section class="panel" id="panel-ear">
+  <div class="controls">
+    <label>Drill <select id="ear-drill"><option value="note" selected>Name the note</option><option value="interval">Name the interval</option><option value="hl">Higher or lower</option></select></label>
+    <label id="ear-range-label">Range <select id="ear-range"><option value="five">Five keys, C to G</option><option value="oct" selected>One octave, C4 to C5</option><option value="two">Two octaves, C3 to C5</option></select></label>
+    <label id="ear-keys-label">Keys <select id="ear-keys"><option value="white" selected>White keys only</option><option value="all">Every key, black ones too</option></select></label>
+    <label id="ear-set-label" hidden>Intervals <select id="ear-set"><option value="fifths" selected>Fifths and octaves</option><option value="thirds">Thirds, fourths, fifths</option><option value="scale">Steps of the major scale</option><option value="all">Everything inside an octave</option></select></label>
+    <label id="ear-dir-label" hidden>Played <select id="ear-dir"><option value="up" selected>One then the other, going up</option><option value="down">One then the other, going down</option><option value="harmonic">Both together</option><option value="mixed">Mixed</option></select></label>
+    <label id="ear-gap-label" hidden>Gap <select id="ear-gap"><option value="wide" selected>Wide, six keys or more</option><option value="mid">Middle, three to five keys</option><option value="close">Close, one or two keys</option><option value="mixed">Mixed</option></select></label>
+    <label id="ear-ref-label"><input type="checkbox" id="ear-ref" checked> Reference C first</label>
+    <label id="ear-names-label"><input type="checkbox" id="ear-names" checked> Key names</label>
+    <span class="row" style="margin-left:auto"><button class="btn" id="ear-replay">Replay</button><button class="btn primary" id="ear-next">New question</button></span>
+  </div>
+  <div class="card">
+    <div class="earstatus" id="ear-status">Press <b>New question</b> to hear the first one.</div>
+    <div class="feedback" id="ear-feedback"><span class="hint">Nothing is drawn on a staff here. The question is a sound, and the answer is in your ear.</span></div>
+    <div class="statline"><span>This session <b id="e-count">0</b></span><span>Correct <b id="e-acc">–</b></span><span>Streak <b id="e-streak">0</b></span></div>
+    <div class="choices" id="ear-choices" role="group" aria-label="Answer"></div>
+    <div class="kbwrap" id="ear-kbwrap"><div class="kb" id="kb-ear" role="group" aria-label="Answer by tapping the key you heard"></div></div>
+    <p class="muted small" id="ear-sound-warn" hidden style="margin:8px 0 0">There is nothing to hear: <b>App sound</b> is switched off in the header.</p>
+    <div class="keyhint" id="ear-keyhint">Spacebar replays the question, <kbd>Enter</kbd> asks a new one. Any answer moves on after a mistake.</div>
+  </div>
+  <details class="compact">
+    <summary>How to train your ear</summary>
+    <p class="muted" style="margin-top:8px">Hearing pitch is comparison, not magic. Almost nobody names a note out of silence; what you are building is the ability to hear how far one note sits from another. So the drills give you a bearing and ask about the distance from it.</p>
+    <div class="mnem">
+      <div><b>Start here</b>Higher or lower with a wide gap. Then narrow the gap until one or two keys apart is still obvious.</div>
+      <div><b>Then intervals</b>Fifths and octaves first, because they are hard to confuse with anything. Add thirds when those are automatic.</div>
+      <div><b>Then the note</b>With <b>Reference C first</b> on, you hear the C, then the mystery note. Five keys is the beginner's range; widen it once you are past nine in ten.</div>
+      <div><b>Sing it back</b>Hum the note before you answer. Matching it with your voice tells you more than guessing does, and it is what makes the interval stick.</div>
+      <div><b>Little and often</b>Five minutes a day beats an hour on Sunday. Ears change slowly and they do not cram.</div>
+      <div><b>Use the piano</b>Wrong answers replay with the answer revealed. Play that interval on your own piano straight away, while it is still in your head.</div>
+    </div>
+  </details>
+</section>
+
 <!-- PRACTICE -->
 <section class="panel" id="panel-practice">
-  <div class="controls">
-    <label>Piece <select id="piece"></select></label>
-    <label>Hands <select id="hands"><option value="both">Both</option><option value="RH">Right only</option><option value="LH">Left only</option></select></label>
-    <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
-    <label><input type="checkbox" id="countin" checked> Count-in</label>
-    <label><input type="checkbox" id="showline" checked> Moving line</label>
-    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn">Listen with mic</button></span>
-    <span class="row" style="margin-left:auto">
+  <!-- One row: what to play, how to play it. The settings you set once and
+       leave sit behind Options, so the score gets the height for both staves. -->
+  <div class="controls ptools">
+    <select id="piece" aria-label="Piece"></select>
+    <select id="hands" aria-label="Hands"><option value="both">Both hands</option><option value="RH">Right hand</option><option value="LH">Left hand</option></select>
+    <details class="popover" id="p-opts">
+      <summary class="btn sm">Options</summary>
+      <div class="pop">
+        <label><input type="checkbox" id="showkeys" checked> Show next keys</label>
+        <label><input type="checkbox" id="countin" checked> Count-in</label>
+        <label><input type="checkbox" id="showline" checked> Moving line</label>
+      </div>
+    </details>
+    <span class="row" id="mic-row-p"><span class="pill mic-pill">Mic off</span><button class="btn sm mic-btn" data-off="Use mic">Use mic</button></span>
+    <span class="row pgo">
       <button class="btn" id="btn-listen">Listen</button>
       <button class="btn" id="btn-play">Play along</button>
       <button class="btn primary" id="btn-wait">Wait mode</button>
@@ -455,6 +547,16 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
     <h3 style="margin-top:18px">Bass clef, by note</h3>
     <div class="grid" id="grid-bass"></div>
     <p class="muted small" style="margin-top:14px">Each cell shows correct answers over attempts. Notes you miss come up more often in the drill until you get them right. Aim for green across the board and under two seconds a note before you widen the range.</p>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>Ear training</h3>
+    <div class="statline" style="margin:0 0 10px"><span>Answered <b id="e-total">0</b></span><span>Correct <b id="e-total-acc">–</b></span></div>
+    <h3>Intervals</h3>
+    <div class="grid" id="grid-int"></div>
+    <h3 style="margin-top:18px">Single notes, by pitch</h3>
+    <div class="grid" id="grid-earnote"></div>
+    <p class="muted small" id="earnote-empty" hidden style="margin-top:8px">No single-note answers yet. <b>Ear training → Name the note</b> fills this in.</p>
+    <p class="muted small" style="margin-top:14px">Higher or lower, by how far apart the two notes were: <span id="ear-hl-line">–</span>. The drills ask more often about whatever you have been missing, same as the reading flashcards.</p>
   </div>
   <div class="card" style="margin-top:14px">
     <h3>Pieces</h3>
@@ -687,6 +789,92 @@ function noteAt(ctx,m,t,dur,dest,gain){
 }
 globalThis.IvoryPiano={SAMPLE_NAMES,nameToMidi,nearestSample,rateFor,load,noteAt,get ready(){return player.ready;},get count(){return player.keys.length;}};
 })();
+/* Ivory Reader ear training: the pure parts of the listening drills — the
+   interval table, the pools each drill draws from, and the weighted pick that
+   brings back whatever you keep missing. No DOM, so test/ear.test.mjs loads it
+   directly. Leaves one global, IvoryEar. */
+(function(){
+'use strict';
+const SEMI={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const midi=(letter,oct)=>(oct+1)*12+SEMI[letter];
+const isBlack=m=>[1,3,6,8,10].includes(m%12);
+
+// Index is the distance in semitones, so INTERVALS[7] is the perfect fifth.
+const INTERVALS=[
+  {s:0,ab:'1',name:'Unison'},
+  {s:1,ab:'m2',name:'Minor 2nd'},
+  {s:2,ab:'M2',name:'Major 2nd'},
+  {s:3,ab:'m3',name:'Minor 3rd'},
+  {s:4,ab:'M3',name:'Major 3rd'},
+  {s:5,ab:'P4',name:'Perfect 4th'},
+  {s:6,ab:'TT',name:'Tritone'},
+  {s:7,ab:'P5',name:'Perfect 5th'},
+  {s:8,ab:'m6',name:'Minor 6th'},
+  {s:9,ab:'M6',name:'Major 6th'},
+  {s:10,ab:'m7',name:'Minor 7th'},
+  {s:11,ab:'M7',name:'Major 7th'},
+  {s:12,ab:'8ve',name:'Octave'}
+];
+// Ear training is a ladder: start with the three that are hard to confuse, add
+// the thirds, then the rest of the scale, then the chromatic leftovers.
+const INT_SETS={
+  fifths:[0,7,12],
+  thirds:[0,3,4,5,7,12],
+  scale:[0,2,4,5,7,9,11,12],
+  all:[0,1,2,3,4,5,6,7,8,9,10,11,12]
+};
+// Ranges for the name-the-note drill. Each starts on a C, which is also the
+// reference note the drill can play first.
+const RANGES={
+  five:{lo:midi('C',4),hi:midi('G',4)},
+  oct:{lo:midi('C',4),hi:midi('C',5)},
+  two:{lo:midi('C',3),hi:midi('C',5)}
+};
+// Interval and higher-or-lower questions are rooted anywhere in the piano's
+// middle, so neither note lands where the ear has no bearings.
+const EAR_LO=midi('C',3),EAR_HI=midi('C',6);
+// Gap sizes for higher-or-lower, in semitones. A close gap is the hard one.
+const GAP_SETS={
+  close:[1,2],
+  mid:[3,4,5],
+  wide:[6,7,8,9,10,11,12],
+  mixed:[1,2,3,4,5,6,7,8,9,10,11,12]
+};
+
+function notePool(rangeKey,keys){
+  const r=RANGES[rangeKey]||RANGES.oct,out=[];
+  for(let m=r.lo;m<=r.hi;m++)if(keys==='all'||!isBlack(m))out.push(m);
+  return out;
+}
+function intervalsIn(setKey){return (INT_SETS[setKey]||INT_SETS.all).map(s=>INTERVALS[s]);}
+// Same shape as the reading drill's weighting: recent misses come back sooner,
+// and something never asked outranks something already answered right.
+function weightOf(stat){
+  if(!stat||!stat.n)return 2;
+  return 1+(stat.recent||[]).filter(x=>!x).length*3;
+}
+function pickWeighted(items,weight,rnd){
+  if(!items.length)return null;
+  const ws=items.map(weight);
+  let r=(rnd||Math.random)()*ws.reduce((a,b)=>a+b,0);
+  for(let i=0;i<items.length;i++){r-=ws[i];if(r<=0)return items[i];}
+  return items[items.length-1];
+}
+// The roots that keep both notes of the question inside EAR_LO..EAR_HI.
+function rootRange(semis,dir){
+  return dir==='down'?{lo:EAR_LO+semis,hi:EAR_HI}:{lo:EAR_LO,hi:EAR_HI-semis};
+}
+function pickRoot(semis,dir,rnd){
+  const r=rootRange(semis,dir);
+  return r.lo+Math.floor((rnd||Math.random)()*(r.hi-r.lo+1));
+}
+// Higher-or-lower progress is kept per gap size, not per exact interval: what
+// you are learning there is how small a step you can still hear.
+function gapBucket(semis){return semis<=2?'close':semis<=5?'mid':'wide';}
+
+globalThis.IvoryEar={INTERVALS,INT_SETS,RANGES,GAP_SETS,EAR_LO,EAR_HI,
+  notePool,intervalsIn,weightOf,pickWeighted,rootRange,pickRoot,gapBucket};
+})();
 </script>
 <script>
 (function(){
@@ -711,8 +899,8 @@ const CLEF={treble:{top:midi('F',5),topLO:['F',5],glyph:'\u{1D11E}',size:48,line
 
 // ---------- storage ----------
 const KEY='ivory-reader-v1';
-let store={notes:{},log:[],pieces:{},pieceStats:{}};
-try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);if(p&&p.notes&&p.log)store=Object.assign({pieces:{},pieceStats:{}},p);}}catch(e){}
+let store={notes:{},log:[],pieces:{},pieceStats:{},ear:{}};
+try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);if(p&&p.notes&&p.log)store=Object.assign({pieces:{},pieceStats:{},ear:{}},p);}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){}}
 
 // ---------- audio ----------
@@ -804,7 +992,7 @@ function showTab(name){
   // While practicing a song the page holds still: no scroll, no bounce, so a
   // stray touch near an edge never shifts the keyboard out from under a hand.
   document.body.classList.toggle('lock-scroll',name==='practice');
-  if(name==='read')layoutRead();if(name==='hand')layoutHand();if(name==='practice')layoutPractice();if(name==='progress')renderProgress();
+  if(name==='read')layoutRead();if(name==='hand')layoutHand();if(name==='ear')layoutEar();if(name==='practice')layoutPractice();if(name==='progress')renderProgress();
   try{localStorage.setItem(KEY+':tab',name);}catch(e){}
 }
 tabs.forEach(t=>t.addEventListener('click',()=>showTab(t.dataset.tab)));
@@ -890,6 +1078,16 @@ document.addEventListener('keydown',e=>{
     if(locked){if(q&&fb.classList.contains('bad'))next();return;}
     const L=e.key.toUpperCase();if(LETTERS.includes(L)){answerLetter(L);e.preventDefault();}
   }else if(activeTab==='hand'){if(/^[1-5]$/.test(e.key))fdAnswer(+e.key);}
+  else if(activeTab==='ear'){
+    if(e.key===' '){e.preventDefault();eq?earPlay():earNext();return;}
+    if(e.key==='Enter'){e.preventDefault();earNext();return;}
+    if(earChoices.hidden)return;
+    if(earDrill()==='hl'&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
+      const v=e.key==='ArrowUp'?'up':'down',b=earChoices.querySelector(`[data-v="${v}"]`);
+      if(b){e.preventDefault();earChoose(v,b);}return;
+    }
+    if(/^[1-9]$/.test(e.key)){const b=earChoices.children[+e.key-1];if(b){e.preventDefault();earChoose(b.dataset.v,b);}}
+  }
   else if(activeTab==='practice'){if(e.key===' '){e.preventDefault();if(transport.mode)stopAll();else startWait();}}
 });
 [clefSel,rangeSel].forEach(s=>s.addEventListener('change',()=>{kbClef=null;nextRead();}));
@@ -1014,6 +1212,186 @@ letterBtns.forEach(b=>b.addEventListener('click',()=>{
   answerLetter(L);
 }));
 
+// ---------- ear training ----------
+// Hearing pitch is comparison: the drills always give the ear a bearing (a
+// reference C, or the first of two notes) and ask how far the next one sits
+// from it. Pools, weighting and the interval table are in src/ear.js.
+const {INTERVALS,INT_SETS,RANGES:EAR_RANGES,GAP_SETS,notePool,intervalsIn,
+  weightOf:earWeightOf,pickWeighted,pickRoot,gapBucket}=IvoryEar;
+const earDrillSel=$('ear-drill'),earRangeSel=$('ear-range'),earKeysSel=$('ear-keys');
+const earSetSel=$('ear-set'),earDirSel=$('ear-dir'),earGapSel=$('ear-gap');
+const earRefChk=$('ear-ref'),earNamesChk=$('ear-names');
+const kbEar=$('kb-ear'),earFb=$('ear-feedback'),earChoices=$('ear-choices'),earStatusEl=$('ear-status'),earKbWrap=$('ear-kbwrap');
+let eq=null,earLocked=false,earTimer=null,earSayTimer=null,earKbKey=null,earLastItem=null;
+const earSession={n:0,ok:0,streak:0};
+const earDrill=()=>earDrillSel.value;
+const earSay=html=>{earStatusEl.innerHTML=html;};
+function earStat(key){return store.ear[key]||{ok:0,n:0,recent:[]};}
+function earPick(items,keyOf){return pickWeighted(items,it=>earWeightOf(earStat(keyOf(it))));}
+function earRecord(key,ok){
+  const s=store.ear[key]||{ok:0,n:0,recent:[]};
+  s.n++;if(ok)s.ok++;s.recent.push(ok?1:0);if(s.recent.length>10)s.recent.shift();
+  store.ear[key]=s;save();
+  earSession.n++;if(ok){earSession.ok++;earSession.streak++;}else earSession.streak=0;
+  $('e-count').textContent=earSession.n;
+  $('e-acc').textContent=Math.round(100*earSession.ok/earSession.n)+'%';
+  $('e-streak').textContent=earSession.streak;
+}
+
+// A question carries the notes to play, the key its score is filed under, and
+// whatever the answer needs to be checked against.
+function earNewQuestion(){
+  const d=earDrill();
+  if(d==='note'){
+    let pool=notePool(earRangeSel.value,earKeysSel.value);
+    if(pool.length>1&&earLastItem!=null)pool=pool.filter(m=>m!==earLastItem);
+    const m=earPick(pool,x=>'note:'+x);
+    earLastItem=m;
+    return {drill:'note',key:'note:'+m,m,ref:EAR_RANGES[earRangeSel.value].lo};
+  }
+  if(d==='interval'){
+    let set=INT_SETS[earSetSel.value];
+    if(set.length>1&&earLastItem!=null)set=set.filter(s=>s!==earLastItem);
+    const s=earPick(set,x=>'int:'+x);
+    earLastItem=s;
+    const dir=earDirSel.value==='mixed'?['up','down','harmonic'][Math.floor(Math.random()*3)]:earDirSel.value;
+    const a=pickRoot(s,dir);
+    return {drill:'interval',key:'int:'+s,s,dir,a,b:dir==='down'?a-s:a+s};
+  }
+  const g=earPick(GAP_SETS[earGapSel.value],x=>'hl:'+gapBucket(x));
+  const up=Math.random()<0.5,a=pickRoot(g,up?'up':'down');
+  return {drill:'hl',key:'hl:'+gapBucket(g),g,up,a,b:up?a+g:a-g};
+}
+// What to play, as offsets in seconds from the start of the question.
+function earSeq(){
+  if(!eq)return [];
+  if(eq.drill==='note'){
+    const seq=[];let at=0;
+    if(earRefChk.checked){seq.push({m:eq.ref,at:0,dur:1});at=0.95;}
+    seq.push({m:eq.m,at,dur:1.4});
+    return seq;
+  }
+  if(eq.dir==='harmonic')return [{m:eq.a,at:0,dur:1.7},{m:eq.b,at:0,dur:1.7}];
+  return [{m:eq.a,at:0,dur:1.1},{m:eq.b,at:0.85,dur:1.4}];
+}
+function earPrompt(){
+  return eq==null?'Press <b>New question</b> to hear one.'
+    :eq.drill==='note'?'Tap the key you heard.'
+    :eq.drill==='interval'?'How far apart were the two notes?'
+    :'Was the second note higher or lower?';
+}
+function earPlay(){
+  if(!eq)return;
+  if(!$('sound').checked){$('ear-sound-warn').hidden=false;earSay('Nothing played: <b>App sound</b> is off.');return;}
+  $('ear-sound-warn').hidden=true;
+  const seq=earSeq();let end=0;
+  try{
+    const c=audio(),t0=c.currentTime+0.08;
+    seq.forEach(s=>{toneAt(s.m,t0+s.at,s.dur);end=Math.max(end,s.at+s.dur);});
+  }catch(e){earSay('This browser is holding sound back. Tap the page once, then press <b>Replay</b>.');return;}
+  clearTimeout(earSayTimer);
+  earSay('Playing…');
+  earSayTimer=setTimeout(()=>earSay(earLocked?'Next question in a moment.':earPrompt()),Math.round(end*1000));
+}
+function earNext(){
+  clearTimeout(earTimer);clearTimeout(earSayTimer);
+  eq=earNewQuestion();earLocked=false;
+  earFb.className='feedback';earFb.innerHTML='<span class="hint">'+earPrompt()+'</span>';
+  kbEar.querySelectorAll('.good,.bad').forEach(k=>k.classList.remove('good','bad'));
+  [...earChoices.children].forEach(b=>b.classList.remove('good','bad'));
+  layoutEar();
+  earPlay();
+}
+// How the answer reads once it is revealed: the name, and where it sat.
+function earFromRef(ref,m){
+  const d=m-ref,oct=Math.floor(d/12),rest=d%12;
+  const octs=n=>n===1?'an octave':n+' octaves';
+  if(d===0)return 'the reference note itself';
+  if(rest===0)return octs(oct)+' above the reference C';
+  return 'a '+INTERVALS[rest].name.toLowerCase()+(oct?' plus '+octs(oct):'')+' above the reference C';
+}
+function earReveal(){
+  if(eq.drill==='note')return {big:noteName(eq.m),detail:earRefChk.checked?earFromRef(eq.ref,eq.m)+'.':''};
+  if(eq.drill==='interval')return {big:INTERVALS[eq.s].name,detail:`${noteName(eq.a)} to ${noteName(eq.b)}.`};
+  return {big:eq.up?'Higher':'Lower',detail:`${noteName(eq.a)} then ${noteName(eq.b)}, ${eq.g} semitone${eq.g===1?'':'s'} apart.`};
+}
+function earFinish(ok,pressed){
+  earLocked=true;clearTimeout(earSayTimer);
+  earRecord(eq.key,ok);
+  const r=earReveal();
+  if(ok){
+    earFb.className='feedback good';
+    earFb.innerHTML=`<span class="big">${r.big}</span><span class="hint">Right. ${r.detail}</span>`;
+    earSay('Next question in a moment.');
+    earTimer=setTimeout(earNext,1100);
+  }else{
+    earFb.className='feedback bad';
+    const you=pressed!=null?`You played ${noteName(pressed)}. `:'';
+    earFb.innerHTML=`<span class="big">${r.big}</span><span class="hint">${you}${r.detail} Playing it again; any answer moves on.</span>`;
+    earPlay();
+    earTimer=setTimeout(earNext,3600);
+  }
+}
+function earAnswerNote(m){
+  if(!eq||eq.drill!=='note')return;
+  if(earLocked){if(earFb.classList.contains('bad'))earNext();return;}
+  const ok=m===eq.m;
+  keyEl(kbEar,eq.m)?.classList.add('good');
+  if(!ok)keyEl(kbEar,m)?.classList.add('bad');
+  earFinish(ok,ok?null:m);
+}
+function earChoose(v,btn){
+  if(!eq||eq.drill==='note')return;
+  if(earLocked){if(earFb.classList.contains('bad'))earNext();return;}
+  const right=eq.drill==='interval'?String(eq.s):(eq.up?'up':'down'),ok=v===right;
+  btn.classList.add(ok?'good':'bad');
+  if(!ok)earChoices.querySelector(`[data-v="${right}"]`)?.classList.add('good');
+  earFinish(ok,null);
+}
+function earRenderChoices(){
+  const d=earDrill(),sig=d+':'+earSetSel.value;
+  if(earChoices.dataset.sig===sig&&earChoices.children.length)return;
+  earChoices.dataset.sig=sig;earChoices.innerHTML='';earChoices.classList.toggle('two-up',d==='hl');
+  const items=d==='interval'
+    ?intervalsIn(earSetSel.value).map(i=>({v:String(i.s),ab:i.ab,name:i.name}))
+    :[{v:'up',ab:'Higher',name:'the second was higher'},{v:'down',ab:'Lower',name:'the second was lower'}];
+  items.forEach(it=>{
+    const b=document.createElement('button');b.type='button';b.dataset.v=it.v;
+    b.innerHTML=`<b>${it.ab}</b><span>${it.name}</span>`;
+    b.addEventListener('click',()=>earChoose(it.v,b));
+    earChoices.appendChild(b);
+  });
+}
+// The answer keyboard starts on the C at or below the range and ends on a white key.
+function earKbRange(){
+  const r=EAR_RANGES[earRangeSel.value];
+  let hi=r.hi;while(isBlack(hi))hi++;
+  return [r.lo-((r.lo%12)+12)%12,hi];
+}
+function layoutEar(){
+  const d=earDrill();
+  $('ear-range-label').hidden=$('ear-keys-label').hidden=$('ear-ref-label').hidden=$('ear-names-label').hidden=d!=='note';
+  $('ear-set-label').hidden=$('ear-dir-label').hidden=d!=='interval';
+  $('ear-gap-label').hidden=d!=='hl';
+  earChoices.hidden=d==='note';earKbWrap.hidden=d!=='note';
+  if(d==='note'){
+    const key=earRangeSel.value+':'+earKeysSel.value+':'+earNamesChk.checked;
+    if(earKbKey!==key||!kbEar.children.length){
+      earKbKey=key;const [lo,hi]=earKbRange();
+      buildKeyboard(kbEar,lo,hi,{names:earNamesChk.checked,onKey:earAnswerNote});
+    }
+  }else earRenderChoices();
+  $('ear-sound-warn').hidden=$('sound').checked;
+}
+$('ear-next').addEventListener('click',earNext);
+$('ear-replay').addEventListener('click',()=>{if(eq)earPlay();else earNext();});
+[earDrillSel,earRangeSel,earKeysSel,earSetSel,earDirSel,earGapSel].forEach(sel=>sel.addEventListener('change',()=>{
+  earKbKey=null;earLastItem=null;
+  if(eq)earNext();else layoutEar();       // no question yet: just re-dress the controls
+}));
+earNamesChk.addEventListener('change',()=>{earKbKey=null;layoutEar();});
+$('sound').addEventListener('change',()=>{if(activeTab==='ear')$('ear-sound-warn').hidden=$('sound').checked;});
+
 // ---------- notation parser: src/parse.js; play-along scoring: src/playalong.js ----------
 const {parsePiece,SHARPS,FLATS,PARTS}=IvoryParse;
 const {Scorer}=IvoryPlayAlong;
@@ -1025,7 +1403,7 @@ function sampleSource(name){
 const PLAY_TOL=0.34; // beats either side of a note that still count as on time
 
 // ---------- score renderer ----------
-function renderScore(svg,piece,width){
+function renderScore(svg,piece,width,scale=1){
   const S=10,LH=S*4,GAP=46,LEFT=34,RIGHT=8,parts=PARTS.filter(p=>piece.parts[p]),hands=['RH','LH'].filter(h=>piece.parts[h]),grand=hands.length===2;
   const sysH=(grand?LH*2+GAP:LH)+58;
   const perSys=Math.max(1,Math.min(4,Math.floor((width-LEFT-RIGHT)/230)));
@@ -1106,8 +1484,8 @@ function renderScore(svg,piece,width){
     }
   }
   h+=`<line class="playhead" x1="0" y1="0" x2="0" y2="0" visibility="hidden"/>`;
-  svg.setAttribute('viewBox',`0 0 ${width} ${H}`);svg.style.height=H+'px';svg.innerHTML=h;
-  return {pos,barPos};
+  svg.setAttribute('viewBox',`0 0 ${width} ${H}`);svg.style.height=H*scale+'px';svg.innerHTML=h;
+  return {pos,barPos,sysH};
 }
 
 // ---------- pieces library ----------
@@ -1205,7 +1583,16 @@ function applyNotation(text){
 function layoutPractice(force){
   if(!piece)return;
   const w=Math.max(320,scoreBox.clientWidth-10);
-  if(force||scoreSvg.dataset.w!==String(w)){scoreSvg.dataset.w=w;const r=renderScore(scoreSvg,piece,w);notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);}
+  // When practice holds the page to one screen, the score gets whatever height
+  // is left. If one line of music (both staves) does not fit in it, draw the
+  // score smaller until it does, down to 70%, so the left hand is never cut off.
+  const locked=document.body.classList.contains('lock-scroll')&&matchMedia('(min-height: 480px)').matches;
+  const room=locked?scoreBox.clientHeight-12:0,key=w+'x'+room;
+  if(force||scoreSvg.dataset.w!==key){
+    scoreSvg.dataset.w=key;let r=renderScore(scoreSvg,piece,w);
+    if(room>0&&r.sysH>room){const k=Math.max(.7,room/r.sysH);r=renderScore(scoreSvg,piece,w/k,k);}
+    notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);
+  }
   const kw=kbP.parentElement.clientWidth;if(force||!kbP.children.length||kbP.dataset.w!==String(kw)){kbP.dataset.w=kw;buildKeyboard(kbP,practiceKbRange[0],practiceKbRange[1],{names:true,onKey:practiceKey});}
 }
 pieceSel.addEventListener('change',()=>loadPiece(pieceSel.value));
@@ -1238,6 +1625,11 @@ $('btn-delete').addEventListener('click',()=>{
 // ---------- transport: listen mode and wait mode ----------
 const transport={mode:null,idx:-1,t0:0,raf:0,mist:0,need:new Set(),got:new Set(),bus:null};
 const handsSel=$('hands'),showKeys=$('showkeys'),showLine=$('showline');
+(function(){
+  const opts=$('p-opts');
+  document.addEventListener('pointerdown',e=>{if(opts.open&&!opts.contains(e.target))opts.open=false;});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&opts.open){opts.open=false;opts.querySelector('summary').focus();}});
+})();
 // ---------- playhead: a line that rides the beat across the score ----------
 function hidePlayhead(){if(playheadEl)playheadEl.setAttribute('visibility','hidden');}
 // beat is in piece beats and may be negative during the count-in, where the line parks on bar 1.
@@ -1260,8 +1652,16 @@ function highlight(idx){
   if(idx<0||!piece.onsets[idx])return;
   const o=piece.onsets[idx];let first=null;
   o.items.forEach(it=>{if(!wanted(it.part))return;const g=scoreSvg.querySelector(`g[data-id="${it.part}-${it.mi}-${it.ni}"]`);if(g){g.classList.add('cur');first=first||g;}});
-  if(first){const r=first.getBoundingClientRect(),b=scoreBox.getBoundingClientRect();if(r.top<b.top||r.bottom>b.bottom)scoreBox.scrollTop+=r.top-b.top-40;}
-  const mi=Math.floor(o.beat/piece.beatsPerBar);$('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
+  const mi=Math.floor(o.beat/piece.beatsPerBar);
+  if(first){
+    const b=scoreBox.getBoundingClientRect(),sv=scoreSvg.getBoundingClientRect(),vb=scoreSvg.viewBox.baseVal,bp=barPos[mi];
+    // The line the current bar sits on, both staves plus the bar number above
+    // and ledger notes below, in screen pixels.
+    const k=vb&&vb.height?sv.height/vb.height:1,top=bp?sv.top+(bp.top-26)*k:0,bot=bp?sv.top+(bp.bot+26)*k:0;
+    if(bp&&bot-top<=b.height){if(top<b.top||bot>b.bottom)scoreBox.scrollTop+=top-b.top;}
+    else{const r=first.getBoundingClientRect();if(r.top<b.top||r.bottom>b.bottom)scoreBox.scrollTop+=r.top-b.top-40;}
+  }
+  $('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
 }
 function setNow(text,cls){const el=$('p-now');el.textContent=text;el.className='now '+(cls||'');}
 function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();}
@@ -1504,7 +1904,7 @@ function stopMic(){
   if(micLoopId)clearInterval(micLoopId);micLoopId=null;
   if(micStream)micStream.getTracks().forEach(t=>t.stop());micStream=null;
   micAnalyser=null;micBuf=null;
-  micStatus('Mic off','');micBtns().forEach(b=>b.textContent='Listen with mic');
+  micStatus('Mic off','');micBtns().forEach(b=>{b.textContent=b.dataset.off||'Listen with mic';b.classList.remove('on');});
   updateMicChordHint();
 }
 async function connectMic(){
@@ -1523,7 +1923,7 @@ async function connectMic(){
   src.connect(micAnalyser);
   micArmed=true;micStableNote=null;micStableCount=0;
   micLoopId=setInterval(micTick,60);
-  micStatus('Listening','on');micBtns().forEach(b=>b.textContent='Stop mic');
+  micStatus('Listening','on');micBtns().forEach(b=>{b.textContent='Stop mic';b.classList.add('on');});
   updateMicChordHint();
 }
 micBtns().forEach(b=>b.addEventListener('click',connectMic));
@@ -1584,16 +1984,39 @@ btnTr.addEventListener('click',async()=>{
 });
 
 // ---------- progress ----------
+// One score cell: the label, then correct over attempts, shaded by how it is going.
+function cell(label,s){
+  const d=document.createElement('div');
+  let cls='none';if(s.n){const r=s.ok/s.n;cls=r>=0.9?'hi':r>=0.7?'mid':'lo';}
+  d.className='cell '+cls;d.innerHTML=`<b>${label}</b>${s.n?s.ok+'/'+s.n:'\u2013'}`;
+  return d;
+}
+function renderEarProgress(){
+  const keys=Object.keys(store.ear);
+  const n=keys.reduce((a,k)=>a+store.ear[k].n,0),ok=keys.reduce((a,k)=>a+store.ear[k].ok,0);
+  $('e-total').textContent=n;$('e-total-acc').textContent=n?Math.round(100*ok/n)+'%':'\u2013';
+  const gi=$('grid-int');gi.innerHTML='';
+  INTERVALS.forEach(iv=>gi.appendChild(cell(iv.ab,earStat('int:'+iv.s))));
+  const gn=$('grid-earnote');gn.innerHTML='';
+  const notes=keys.filter(k=>k.startsWith('note:')).map(k=>+k.slice(5)).sort((a,b)=>a-b);
+  notes.forEach(m=>gn.appendChild(cell(noteName(m),earStat('note:'+m))));
+  $('earnote-empty').hidden=notes.length>0;
+  const gaps={close:'one or two keys',mid:'three to five',wide:'six or more'};
+  $('ear-hl-line').textContent=Object.keys(gaps).map(b=>{
+    const s=earStat('hl:'+b);return `${gaps[b]} ${s.n?s.ok+'/'+s.n:'\u2013'}`;
+  }).join(' \u00b7 ');
+}
 function renderProgress(){
   const log=store.log,n=log.length,ok=log.filter(x=>x.ok).length;
   $('p-total').textContent=n;$('p-acc').textContent=n?Math.round(100*ok/n)+'%':'–';
   const rec=log.slice(-50);$('p-recent').textContent=rec.length?Math.round(100*rec.filter(x=>x.ok).length/rec.length)+'%':'–';
   const times=rec.filter(x=>x.ok).map(x=>x.ms).sort((a,b)=>a-b);$('p-time').textContent=times.length?(times[Math.floor(times.length/2)]/1000).toFixed(1):'–';
-  ['treble','bass'].forEach(c=>{const g=$('grid-'+c);g.innerHTML='';POOL[c].ledger.forEach(m=>{const s=stat(m,c);const d=document.createElement('div');let cls='none';if(s.n){const r=s.ok/s.n;cls=r>=0.9?'hi':r>=0.7?'mid':'lo';}d.className='cell '+cls;d.innerHTML=`<b>${noteName(m)}</b>${s.n?s.ok+'/'+s.n:'–'}`;g.appendChild(d);});});
+  ['treble','bass'].forEach(c=>{const g=$('grid-'+c);g.innerHTML='';POOL[c].ledger.forEach(m=>g.appendChild(cell(noteName(m),stat(m,c))));});
+  renderEarProgress();
   const tb=$('piece-rows');tb.innerHTML='';
   pieceList().forEach(p=>{const s=store.pieceStats[p.id];const tr=document.createElement('tr');tr.innerHTML=`<td>${titleOf(p.text)}</td><td>${s?s.runs:0}</td><td>${s?s.last:'–'}</td><td>${s?new Date(s.at).toLocaleDateString():'–'}</td>`;tb.appendChild(tr);});
 }
-$('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress in this browser? Your saved pieces stay.'))return;store.notes={};store.log=[];store.pieceStats={};save();renderProgress();});
+$('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress in this browser? Your saved pieces stay.'))return;store.notes={};store.log=[];store.pieceStats={};store.ear={};save();renderProgress();});
 
 // ---------- install (PWA) ----------
 (function(){
@@ -1650,13 +2073,13 @@ $('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress 
 
 // ---------- boot ----------
 window.addEventListener('orientationchange',()=>setTimeout(()=>window.dispatchEvent(new Event('resize')),200));
-let resizeT;window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{kbClef=null;if(activeTab==='read')layoutRead();if(activeTab==='hand')layoutHand();if(activeTab==='practice')layoutPractice(true);},150);});
+let resizeT;window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{kbClef=null;earKbKey=null;if(activeTab==='read')layoutRead();if(activeTab==='hand')layoutHand();if(activeTab==='ear')layoutEar();if(activeTab==='practice')layoutPractice(true);},150);});
 buildLights();setBpm(72);
 try{IvoryPiano.load(audio(),sampleSource);}catch(e){}   // decode now; the context resumes on the first tap
 next();
 fillPieceSelect();loadPiece('b:ode');
 let startTab='read';try{startTab=localStorage.getItem(KEY+':tab')||'read';}catch(e){}
-const hashTab=location.hash.replace('#','');if(['read','hand','practice','progress'].includes(hashTab))startTab=hashTab;
+const hashTab=location.hash.replace('#','');if(['read','hand','ear','practice','progress'].includes(hashTab))startTab=hashTab;
 showTab(startTab);
 initSample();
 })();
