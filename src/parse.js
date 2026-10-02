@@ -59,7 +59,8 @@ function parsePiece(text){
   const beatsPerBar=piece.time[0]*4/piece.time[1];piece.beatsPerBar=beatsPerBar;
   // A second voice needs its first voice; if only the second is given, treat it as the first.
   ['RH','LH'].forEach(h=>{if(partLines[h+'2']&&!partLines[h]){piece.errors.push(`${h}2 needs an ${h} line too; reading it as ${h}.`);partLines[h]=partLines[h+'2'];delete partLines[h+'2'];}});
-  const tokRe=/^(?:\[([^\]]+)\]|([A-Ga-g][#bn]?\d)|(r))\/([whqes])(\.?)(~?)$/;
+  // "@" then one finger per pitch (1 = thumb), in the order the pitches are written: E4/q@3, [C4 E4 G4]/h@135
+  const tokRe=/^(?:\[([^\]]+)\]|([A-Ga-g][#bn]?\d)|(r))\/([whqes])(\.?)(~?)(?:@([1-5]+))?$/;
   function pitch(tok){
     const pm=tok.match(/^([A-Ga-g])([#bn]?)(\d)$/);if(!pm)return null;
     const letter=pm[1].toUpperCase(),acc=pm[2],oct=+pm[3];
@@ -91,6 +92,10 @@ function parsePiece(text){
         if(t[1]){t[1].trim().split(/\s+/).forEach(p=>{const r=pitch(p);if(r)n.pitches.push(r);else piece.errors.push(`${part} bar ${mi+1}: bad pitch "${p}" in chord.`);});}
         else if(t[2]){const r=pitch(t[2]);if(r)n.pitches.push(r);}
         if(!n.rest&&!n.pitches.length){piece.errors.push(`${part} bar ${mi+1}: "${tok}" has no pitch.`);return;}
+        if(t[7]){
+          if(n.rest||t[7].length!==n.pitches.length)piece.errors.push(`${part} bar ${mi+1}: "${tok}" needs one finger per note.`);
+          else n.pitches.forEach((p,i)=>p.finger=+t[7][i]);
+        }
         n.pitches.sort((a,b)=>a.m-b.m);notes.push(n);start+=dur;
       });
       if(tup)piece.errors.push(`${part} bar ${mi+1}: tuplet is not closed with ")".`);
