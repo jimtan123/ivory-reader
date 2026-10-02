@@ -53,7 +53,11 @@ are lost if you clear the browser's data for this site.
   note, the way Chinese song books print it: 1 is the key's tonic (in C, middle
   C), a dot above means an octave higher, a dot below an octave lower, and two
   dots two octaves. Chords stack highest on top; a held (tied) note is shown
-  faint and a rest is 0. The choice is remembered.
+  faint and a rest is 0. The choice is remembered. **Finger numbers**, on by
+  default, prints the fingers a piece gives (1 = thumb) above its notes.
+  **Tap a note** on the score (while nothing is playing) to light its key on
+  the keyboard, with the finger on it, and hear it. The practice keyboard is
+  kept short so the score, numbers and all, has the room.
 - **Progress** — accuracy per note, speed, and a run history per piece.
 - **Metronome and MIDI** in the bar along the bottom.
 - **Piano sound** is a sampled grand: the [Salamander Grand Piano](https://github.com/sfzinstruments/SalamanderGrandPiano)
@@ -82,6 +86,9 @@ LH: C3/h G3/h | C3/h G3/h
 Pitch is a letter, an optional `#`, `b` or `n`, then the octave, where middle C
 is `C4`. Length is `w` `h` `q` `e` `s`, dotted with `.`. A rest is `r/q`, a
 chord is `[C4 E4 G4]/h`, a tie is `C4/h~`, and `|` separates bars.
+
+A finger goes after `@`: `E4/q@3`, and a chord takes one per note in the order
+written, `[C4 E4 G4]/h@135`.
 
 A tuplet is the count, then the notes in round brackets: `3(C4/e D4/e E4/e)`
 is three eighths in the time of two (`5(...)` is five in the time of four).

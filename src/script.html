@@ -525,7 +525,8 @@ function sampleSource(name){
 const PLAY_TOL=0.34; // beats either side of a note that still count as on time
 
 // ---------- score renderer ----------
-// opts.jianpu adds a lane of numbered notation (简谱) under each staff.
+// opts.jianpu adds a lane of numbered notation (简谱) under each staff;
+// opts.fingers writes the finger numbers a piece carries above the notes.
 function renderScore(svg,piece,width,scale=1,opts={}){
   const S=10,LH=S*4,GAP=46,LEFT=34,RIGHT=8,parts=PARTS.filter(p=>piece.parts[p]),hands=['RH','LH'].filter(h=>piece.parts[h]),grand=hands.length===2;
   const clefFor=p=>piece.handOf(p)==='RH'?'treble':'bass';
@@ -548,13 +549,30 @@ function renderScore(svg,piece,width,scale=1,opts={}){
     });
     lane[hd]={off:low+16,h:low+16-LH+rows*JROW};
   });
-  const sysH=(grand?LH*2+GAP:LH)+58+lane.RH.h+lane.LH.h;
+  // Finger lane per hand, above the highest note, stem or tuplet bracket;
+  // fy is the baseline of the lowest finger row, relative to the staff top.
+  const FROW=12,fing={RH:{fy:0,h:0},LH:{fy:0,h:0}};
+  if(opts.fingers)hands.forEach(hd=>{
+    let high=-22,rows=0;
+    [hd,hd+'2'].forEach(part=>{if(!piece.parts[part])return;
+      const twoVoices=part.endsWith('2')||!!piece.parts[part+'2'];
+      piece.parts[part].forEach(bar=>bar.notes.forEach(n=>{
+        const k=n.pitches.filter(p=>p.finger).length;if(!k||n.tiedFrom)return;rows=Math.max(rows,k);
+        const ys=n.pitches.map(p=>yOf(part,p.letter,p.oct,0)),yTop=Math.min(...ys),yBot=Math.max(...ys);
+        const up=twoVoices?!part.endsWith('2'):(yTop+yBot)/2>2*S;
+        high=Math.min(high,yTop-6,up&&n.kind!=='w'?yBot-3.2*S:0);
+      }));
+    });
+    // the first 30px above a staff are already free (bar number, tuplet "3")
+    if(rows)fing[hd]={fy:high-5,h:Math.max(0,-(high-5)+(rows-1)*FROW+12-30)};
+  });
+  const sysH=(grand?LH*2+GAP:LH)+58+lane.RH.h+lane.LH.h+fing.RH.h+fing.LH.h;
   const perSys=Math.max(1,Math.min(4,Math.floor((width-LEFT-RIGHT)/230)));
   const nSys=Math.ceil(piece.nBars/perSys);
   const H=nSys*sysH+10;
   let h='';const pos={};// id -> {x,y,part}
   const barPos=[];// bar index -> {x,w,top,bot}: the track the playhead runs along
-  function staffTop(sys,part){return 30+sys*sysH+(piece.handOf(part)==='LH'&&grand?LH+GAP+lane.RH.h:0);}
+  function staffTop(sys,part){return 30+fing.RH.h+sys*sysH+(piece.handOf(part)==='LH'&&grand?LH+GAP+lane.RH.h+fing.LH.h:0);}
   // one column of numbers at x: highest note on top, a dot above or below per octave away from middle C's octave
   function jpCol(x,y0,n){
     if(n.rest)return `<text class="jp rest" x="${x}" y="${y0+14}" text-anchor="middle">0</text>`;
@@ -625,6 +643,12 @@ function renderScore(svg,piece,width,scale=1,opts={}){
             pos[id]={x,y:up?yBot:yTop,part,up,ys};
             if(n.tie){const nx=x+ (ni+1<bar.notes.length?(bar.notes[ni+1].start-n.start)/piece.beatsPerBar*inner: mw-pad-(n.start/piece.beatsPerBar)*inner+14);const ty=up?yBot+6:yTop-6;const bend=up?8:-8;g+=`<path class="tie" d="M${x+4} ${ty} q ${(nx-x-8)/2} ${bend}, ${nx-x-8} 0"/>`;}
           }
+          if(opts.fingers&&!n.rest&&!n.tiedFrom){
+            const fs=n.pitches.filter(p=>p.finger).reverse(),hc=piece.handOf(part)==='RH'?'R':'L';
+            fs.forEach((p,r)=>{g+=`<text class="fing ${hc}" x="${x}" y="${top+fing[piece.handOf(part)].fy-(fs.length-1-r)*FROW}" text-anchor="middle">${p.finger}</text>`;});
+          }
+          // a finger-sized tap target over the note's column of the staff
+          g+=`<rect class="hit" x="${x-10}" y="${top-S}" width="20" height="${7*S}"/>`;
           if(opts.jianpu){const vrows=voice2?Math.max(...piece.parts[part.slice(0,2)].map(b=>Math.max(1,...b.notes.map(q=>q.rest?1:q.pitches.length)))):0;g+=jpCol(x,top+lane[piece.handOf(part)].off+vrows*JROW,n);}
           if(n.tuplet){
             if(n.tuplet.first)tupX=x;
@@ -715,29 +739,31 @@ LH: [F3 G3]/w | r/w | [F3 G3]/w | [C3 G3]/w`,
 # Octaves: the print leaves dots off bars 2-3; the guitar tab puts them at C5-F5.
 # Most doubtful: the low A3/B3/G3 in bars 10-12 and 18-20 (dots under 7 only),
 # the C4 that ends bar 1, and the 16ths in bars 26, 32, 36.
+# Right-hand fingers (@n, 1 = thumb) are a suggestion worked out for a
+# beginner: neighbouring fingers on steps, the thumb to move the hand. Change any you like.
 title: Not That Simple (没那么简单)
 time: 4/4
 key: C
 tempo: 50
-RH: 3(A4/q G4/e~) 3(G4/e G4/e C5/e) G4/q~ 3(G4/q C4/e) | 3(A4/q G4/e~) 3(G4/e G4/e D5/e) C5/q~ 3(C5/e D5/e E5/e) | F5/q E5/q C5/h | r/h r/q 3(r/q C5/e)
+RH: 3(A4/q@3 G4/e~@2) 3(G4/e G4/e@2 C5/e@5) G4/q~@2 3(G4/q C4/e@1) | 3(A4/q@4 G4/e~@2) 3(G4/e G4/e@1 D5/e@3) C5/q~@2 3(C5/e D5/e@3 E5/e@4) | F5/q@5 E5/q@4 C5/h@1 | r/h r/q 3(r/q C5/e@5)
 LH: [F2 C3]/h [E2 C3]/h | [F2 C3]/h [E2 C3]/h | [Bb2 F3]/h [G2 F3]/h | [C3 G3]/h [A2 F3]/h
-RH: 3(B4/q G4/e~) 3(G4/e E4/e E4/e) D4/q G4/q
+RH: 3(B4/q@4 G4/e~@2) 3(G4/e E4/e@1 E4/e@2) D4/q@1 G4/q@4
 LH: [C3 B3]/h [C3 A3]/h
-RH: 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e D4/e) 3(E4/q A4/e) | G4/q 3(E4/q D4/e) E4/h | 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e E4/e) 3(E4/e D4/e D4/e) | D4/q~ 3(D4/q E4/e) 3(F4/e E4/e D4/e~) 3(D4/q C4/e)
+RH: 3(G4/e@4 E4/e@2 D4/e@1) E4/q@2 3(G4/e@4 E4/e@2 D4/e@1) 3(E4/q@2 A4/e@5) | G4/q@4 3(E4/q@2 D4/e@1) E4/h@2 | 3(G4/e@5 E4/e@3 D4/e@2) E4/q@3 3(G4/e@5 E4/e@3 E4/e@3) 3(E4/e@3 D4/e@2 D4/e@2) | D4/q~@2 3(D4/q E4/e@3) 3(F4/e@4 E4/e@3 D4/e~@2) 3(D4/q C4/e@1)
 LH: [C3 G3]/w | [E2 B2]/w | [A2 E3]/w | [F2 C3]/h [G2 D3]/h
-RH: C4/q~ 3(C4/e A3/q) A3/q~ 3(A3/q B3/e) | B3/q~ 3(B3/e A3/q) G3/q~ 3(G3/q E4/e) | 3(F4/q E4/e) 3(C4/q A3/e) C4/q 3(D4/q D4/e~) | D4/h. G4/q
+RH: C4/q~@2 3(C4/e A3/q@1) A3/q~@1 3(A3/q B3/e@3) | B3/q~@3 3(B3/e A3/q@2) G3/q~@1 3(G3/q E4/e@4) | 3(F4/q@5 E4/e@4) 3(C4/q@2 A3/e@1) C4/q@2 3(D4/q@3 D4/e~@3) | D4/h. G4/q@5
 LH: [F2 C3]/h [F2 B2]/h | [E2 B2]/h [A2 D3]/q [A2 C#3]/q | [D2 A2]/h [C2 A2]/h | B2/q A2/q [G2 D3]/h
-RH: 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e D4/e) 3(E4/q A4/e) | G4/q 3(A4/q G4/e) 3(A4/e G4/e E4/e~) E4/q | 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e E4/e) 3(E4/e D4/e D4/e) | D4/q~ 3(D4/q E4/e) 3(F4/e E4/e D4/e~) 3(D4/q C4/e)
+RH: 3(G4/e@5 E4/e@3 D4/e@2) E4/q@3 3(G4/e@5 E4/e@3 D4/e@2) 3(E4/q@3 A4/e@5) | G4/q@4 3(A4/q@5 G4/e@4) 3(A4/e@5 G4/e@4 E4/e~@2) E4/q | 3(G4/e@4 E4/e@2 D4/e@1) E4/q@2 3(G4/e@4 E4/e@2 E4/e@2) 3(E4/e@2 D4/e@1 D4/e@1) | D4/q~@1 3(D4/q E4/e@3) 3(F4/e@4 E4/e@3 D4/e~@2) 3(D4/q C4/e@1)
 LH: [C3 G3]/w | [E2 B2]/w | [A2 E3]/w | [F2 C3]/h [G2 D3]/h
-RH: C4/q~ 3(C4/e A3/q) A3/q~ 3(A3/q B3/e) | B3/q 3(B3/q A3/e) G3/q~ 3(G3/q E4/e) | 3(F4/q E4/e) 3(C4/q A3/e) 3(F4/e E4/e E4/e~) 3(E4/q C4/e~) | 3(C4/e D4/q) C4/h 3(C5/q C5/e)
+RH: C4/q~@2 3(C4/e A3/q@1) A3/q~@1 3(A3/q B3/e@3) | B3/q@3 3(B3/q@3 A3/e@2) G3/q~@1 3(G3/q E4/e@4) | 3(F4/q@5 E4/e@4) 3(C4/q@2 A3/e@1) 3(F4/e@4 E4/e@3 E4/e~@3) 3(E4/q C4/e~@1) | 3(C4/e D4/q@2) C4/h@1 3(C5/q@5 C5/e@5)
 LH: [F2 C3]/h [F2 B2]/h | [E2 B2]/h [A2 E3]/h | [D2 A2]/h [G2 F3]/h | [C3 F3]/h [C3 G3]/h
-RH: 3(A4/e G4/e G4/e) 3(G4/e F4/e G4/e) G4/q~ 3(G4/e C5/e C5/e) | 3(A4/e G4/e G4/e) 3(G4/e F4/e G4/e) E4/q~ 3(E4/e E4/e F4/e) | 3(G4/e F4/e F4/e~) 3(F4/e E4/e F4/e) 3(G4/e F4/e F4/e) 3(F4/e E4/e D4/e) | E4/q 3(A4/q G4/e) 3(A4/e G4/e G4/e~) 3(G4/e B4/e C5/e)
+RH: 3(A4/e@3 G4/e@2 G4/e@2) 3(G4/e@2 F4/e@1 G4/e@2) G4/q~@2 3(G4/e C5/e@5 C5/e@5) | 3(A4/e@3 G4/e@2 G4/e@2) 3(G4/e@2 F4/e@1 G4/e@2) E4/q~@1 3(E4/e E4/e@2 F4/e@3) | 3(G4/e@4 F4/e@3 F4/e~@3) 3(F4/e E4/e@2 F4/e@3) 3(G4/e@4 F4/e@3 F4/e@3) 3(F4/e@3 E4/e@2 D4/e@1) | E4/q@2 3(A4/q@4 G4/e@2) 3(A4/e@3 G4/e@2 G4/e~@2) 3(G4/e B4/e@4 C5/e@5)
 LH: [F2 C3]/h [E2 C3]/h | [D3 A3]/h [C3 G3]/h | [Bb2 F3]/h [F2 C3]/h | [C3 G3]/h [D3 Bb3]/q [E3 Bb3]/q
-RH: 3(A4/q G4/e) 3(G4/e G4/e F4/s G4/s) G4/q~ 3(G4/e G4/e G4/e) | 3(E5/q D5/e) 3(D5/q C5/e) 3(G4/e A4/e C5/e~) 3(C5/e G4/e A4/e) | 3(C5/e G4/e A4/e~) 3(A4/e G4/e A4/e) 3(C5/e G4/e A4/e~) 3(A4/e G4/e G4/e) | 3(E5/q E5/e) 3(E5/e E5/e F5/e) D5/q 3(E5/q E5/e)
+RH: 3(A4/q@3 G4/e@2) 3(G4/e@2 G4/e@2 F4/s@1 G4/s@2) G4/q~@1 3(G4/e G4/e@1 G4/e@1) | 3(E5/q@4 D5/e@3) 3(D5/q@3 C5/e@2) 3(G4/e@1 A4/e@2 C5/e~@4) 3(C5/e G4/e@1 A4/e@2) | 3(C5/e@4 G4/e@1 A4/e~@2) 3(A4/e G4/e@1 A4/e@2) 3(C5/e@4 G4/e@1 A4/e~@2) 3(A4/e G4/e@1 G4/e@1) | 3(E5/q@3 E5/e@3) 3(E5/e@3 E5/e@3 F5/e@4) D5/q@2 3(E5/q@3 E5/e@3)
 LH: [F2 C3]/h [E2 C3]/h | [E3 G#3]/h [A2 E3]/h | [D3 G3]/h [D3 F#3]/h | [G2 F3]/h [G2 D3]/h
-RH: 3(E5/q D5/e) 3(D5/e D5/e C5/e) E5/q 3(B4/q B4/e) | 3(C5/q C5/e) 3(D5/e D5/e E5/e) C5/q 3(E5/q E5/e) | 3(F5/q E5/e) 3(D5/e C5/e C5/e) 3(C5/s D5/s C5/e A4/e~) 3(A4/e E5/e E5/e) | 3(F5/q E5/e) 3(D5/e C5/e D5/e) D5/q 3(E5/q E5/e)
+RH: 3(E5/q@3 D5/e@2) 3(D5/e@2 D5/e@2 C5/e@1) E5/q@2 3(B4/q@1 B4/e@1) | 3(C5/q@2 C5/e@1) 3(D5/e@2 D5/e@2 E5/e@3) C5/q@1 3(E5/q@3 E5/e@3) | 3(F5/q@4 E5/e@3) 3(D5/e@2 C5/e@1 C5/e@1) 3(C5/s@2 D5/s@3 C5/e@2 A4/e~@1) 3(A4/e E5/e@3 E5/e@3) | 3(F5/q@4 E5/e@3) 3(D5/e@2 C5/e@1 D5/e@2) D5/q@2 3(E5/q@3 E5/e@3)
 LH: [C3 G3]/w | [A2 E3]/w | [D3 A3]/w | [Bb2 F3]/h [G2 D3]/h
-RH: 3(E5/q D5/e) 3(D5/e D5/e C5/e) E5/q 3(B4/q B4/e) | 3(C5/q C5/e) 3(D5/e D5/e E5/e) C5/q 3(E5/q E5/e) | 3(F5/q E5/e) 3(D5/e C5/e C5/e) 3(C5/s D5/s C5/e A4/e~) 3(A4/e G4/e G4/e) | 3(E5/e C5/e C5/e~) 3(C5/e G4/e G4/e) 3(E5/e C5/e C5/e) 3(C5/q B4/e~) | 3(B4/e C5/q~) C5/h.
+RH: 3(E5/q@3 D5/e@2) 3(D5/e@2 D5/e@2 C5/e@1) E5/q@2 3(B4/q@1 B4/e@1) | 3(C5/q@2 C5/e@1) 3(D5/e@2 D5/e@2 E5/e@3) C5/q@1 3(E5/q@3 E5/e@3) | 3(F5/q@4 E5/e@3) 3(D5/e@2 C5/e@1 C5/e@1) 3(C5/s@2 D5/s@4 C5/e@3 A4/e~@2) 3(A4/e G4/e@1 G4/e@1) | 3(E5/e@5 C5/e@3 C5/e~@3) 3(C5/e G4/e@1 G4/e@1) 3(E5/e@5 C5/e@3 C5/e@3) 3(C5/q@3 B4/e~@2) | 3(B4/e C5/q~@3) C5/h.
 LH: [C3 G3]/h [E3 G#3]/h | [A2 E3]/w | [D3 A3]/w | [F3 Ab3]/h [G2 D3]/h | [F2 C3]/h [E2 C3]/h`
 };
 const pieceSel=$('piece'),notationTa=$('notation'),errsEl=$('notation-errs'),scoreSvg=$('score-svg'),scoreBox=$('score'),kbP=$('kb-p');
@@ -777,7 +803,7 @@ function layoutPractice(force){
   const locked=document.body.classList.contains('lock-scroll')&&matchMedia('(min-height: 480px)').matches;
   const room=locked?scoreBox.clientHeight-12:0,key=w+'x'+room;
   if(force||scoreSvg.dataset.w!==key){
-    const ro={jianpu:showNum.checked};
+    const ro={jianpu:showNum.checked,fingers:showFing.checked};
     scoreSvg.dataset.w=key;let r=renderScore(scoreSvg,piece,w,1,ro);
     if(room>0&&r.sysH>room){const k=Math.max(.7,room/r.sysH);r=renderScore(scoreSvg,piece,w/k,k,ro);}
     notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);
@@ -813,9 +839,29 @@ $('btn-delete').addEventListener('click',()=>{
 
 // ---------- transport: listen mode and wait mode ----------
 const transport={mode:null,idx:-1,t0:0,raf:0,mist:0,need:new Set(),got:new Set(),bus:null};
-const handsSel=$('hands'),showKeys=$('showkeys'),showLine=$('showline'),showNum=$('shownum');
+const handsSel=$('hands'),showKeys=$('showkeys'),showLine=$('showline'),showNum=$('shownum'),showFing=$('showfing');
 showNum.checked=!!store.jianpu;
 showNum.addEventListener('change',()=>{store.jianpu=showNum.checked;save();layoutPractice(true);});
+showFing.checked=store.fingers!==false;
+showFing.addEventListener('change',()=>{store.fingers=showFing.checked;save();layoutPractice(true);});
+// Tap a note on the score: light its keys, with the finger on each if the
+// piece gives one, and play it. Only while nothing is running.
+function clearTapped(){kbP.querySelectorAll('.tap').forEach(k=>k.classList.remove('tap'));kbP.querySelectorAll('.fg.tapf').forEach(f=>f.remove());scoreSvg.querySelectorAll('g.tapped').forEach(g=>g.classList.remove('tapped'));}
+scoreSvg.addEventListener('click',e=>{
+  if(transport.mode)return;
+  const g=e.target.closest&&e.target.closest('g.ev');clearTapped();if(!g)return;
+  const [part,mi,ni]=g.dataset.id.split('-'),n=piece.parts[part]?.[+mi]?.notes[+ni];
+  if(!n||n.rest)return;
+  g.classList.add('tapped');
+  const hc=piece.handOf(part)==='RH'?'R':'L';
+  n.pitches.forEach((p,i)=>{
+    const el=keyEl(kbP,p.m);
+    if(el){el.classList.add('tap');if(p.finger){const f=document.createElement('span');f.className='fg tapf '+hc;f.textContent=p.finger;el.appendChild(f);}if(i===0){const w=kbP.parentElement;w.scrollLeft=el.offsetLeft-w.clientWidth/2;}}
+    play(p.m,1.2);
+  });
+  const fingers=n.pitches.filter(p=>p.finger).map(p=>p.finger);
+  setNow(n.pitches.map(p=>noteName(p.m)).join(' + ')+(fingers.length?` · ${hc==='R'?'right':'left'} hand finger ${fingers.join(', ')}`:''));
+});
 (function(){
   const opts=$('p-opts');
   document.addEventListener('pointerdown',e=>{if(opts.open&&!opts.contains(e.target))opts.open=false;});
@@ -855,7 +901,7 @@ function highlight(idx){
   $('p-where').textContent=`Bar ${mi+1} of ${piece.nBars}`;
 }
 function setNow(text,cls){const el=$('p-now');el.textContent=text;el.className='now '+(cls||'');}
-function resetPractice(){transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();}
+function resetPractice(){clearTapped();transport.mode=null;transport.idx=-1;transport.mist=0;highlight(-1);hidePlayhead();setNow('');$('p-where').textContent='';$('p-mist').textContent='';kbP.querySelectorAll('.want,.good,.bad').forEach(k=>k.classList.remove('want','good','bad'));$('btn-listen').textContent='Listen';$('btn-wait').textContent='Wait mode';$('btn-play').textContent='Play along';updateMicChordHint();}
 function stopAll(){
   cancelAnimationFrame(transport.raf);
   if(transport.bus){try{transport.bus.disconnect();}catch(e){}transport.bus=null;}

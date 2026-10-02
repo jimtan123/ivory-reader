@@ -94,6 +94,15 @@ svg text.jp tspan.jpacc{font-size:10px}
 svg .jp.tied{opacity:.35}
 svg text.jp.rest{fill:var(--muted);font-weight:400}
 svg g.cur text.jp,svg g.cur circle.jp{fill:var(--accent)}
+svg text.fing{font-family:var(--font-body);font-weight:700;font-size:12px}
+svg text.fing.R{fill:var(--right)}svg text.fing.L{fill:var(--left)}
+svg rect.hit{fill:transparent;cursor:pointer}
+svg g.tapped .note{fill:var(--accent)}
+svg g.tapped .note.hollow{fill:none;stroke:var(--accent)}
+svg g.tapped text.jp,svg g.tapped circle.jp{fill:var(--accent)}
+.kb .w.tap{background:var(--hint)}.kb .b.tap{background:#8A6A2A}
+.kb .b .fg{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.kb .w .fg.tapf{bottom:30px}
 svg .cursor{fill:var(--accent);opacity:.12}
 svg .playhead{stroke:var(--accent);stroke-width:2;opacity:.5;stroke-linecap:round;pointer-events:none}
 .feedback{min-height:52px;text-align:center;font-size:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px}
@@ -325,6 +334,13 @@ table.pt td{padding:6px;border-bottom:1px solid var(--line)}
 .sheet ol{margin:0 0 12px;padding-left:20px;font-size:15px}
 .sheet li{margin-bottom:6px}
 .sheet .step{font-size:13px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;margin:14px 0 6px}
+/* Practice keyboard: short, for tapping and for seeing where a note is, so the
+   score keeps both staves and their numbers in view. It comes after every .kb
+   rule above and is more specific, so it wins on tablets and phones alike. */
+#panel-practice #kb-p{height:150px}
+#panel-practice #kb-p .w{padding-bottom:6px;font-size:11px}
+.app.focus #panel-practice #kb-p{height:220px}
+@media (max-width: 760px) and (orientation: portrait){#panel-practice #kb-p{height:120px}}
 @media (prefers-reduced-motion: no-preference){
   .kb .w,.kb .b{transition:background .1s}
 }

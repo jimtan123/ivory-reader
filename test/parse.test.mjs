@@ -62,3 +62,15 @@ test('a chord written with spaces inside the brackets parses as one note',()=>{
   assert.equal(p.parts.RH[0].notes.length,1);
   assert.deepEqual(p.parts.RH[0].notes[0].pitches.map(x=>x.m),[60,64,67]);
 });
+
+test('finger numbers ride on a note after "@", one per pitch, in written order',()=>{
+  const p=parsePiece(head+'RH: E4/q@3 [C4 G4 E4]/q@135 G4/h~@5\nLH: r/w');
+  assert.deepEqual(p.errors,[]);
+  const n=p.parts.RH[0].notes;
+  assert.equal(n[0].pitches[0].finger,3);
+  // fingers follow the written order, and the chord is then sorted low to high
+  assert.deepEqual(n[1].pitches.map(x=>x.finger),[1,5,3]);
+  assert.equal(n[2].tie,true);assert.equal(n[2].pitches[0].finger,5);
+  assert.ok(parsePiece(head+'RH: [C4 E4]/q@1 r/q r/h').errors.length);
+  assert.ok(parsePiece(head+'RH: r/q@1 r/q r/h').errors.length);
+});
