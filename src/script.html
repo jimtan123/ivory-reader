@@ -525,17 +525,46 @@ function sampleSource(name){
 const PLAY_TOL=0.34; // beats either side of a note that still count as on time
 
 // ---------- score renderer ----------
-function renderScore(svg,piece,width,scale=1){
+// opts.jianpu adds a lane of numbered notation (简谱) under each staff.
+function renderScore(svg,piece,width,scale=1,opts={}){
   const S=10,LH=S*4,GAP=46,LEFT=34,RIGHT=8,parts=PARTS.filter(p=>piece.parts[p]),hands=['RH','LH'].filter(h=>piece.parts[h]),grand=hands.length===2;
-  const sysH=(grand?LH*2+GAP:LH)+58;
+  const clefFor=p=>piece.handOf(p)==='RH'?'treble':'bass';
+  function yOf(part,letter,oct,top){const c=CLEF[clefFor(part)];return top+(diaLO(c.topLO[0],c.topLO[1])-diaLO(letter,oct))*S/2;}
+  // Numbers lane per hand: starts below the lowest ledger note or down-stem
+  // anywhere in the piece, one row per note of the biggest chord (voice 2 below voice 1).
+  const JROW=23,lane={RH:{off:0,h:0},LH:{off:0,h:0}};
+  if(opts.jianpu)hands.forEach(hd=>{
+    let low=LH,rows=0;
+    [hd,hd+'2'].forEach(part=>{
+      if(!piece.parts[part])return;let r=0;
+      const twoVoices=part.endsWith('2')||!!piece.parts[part+'2'];
+      piece.parts[part].forEach(bar=>bar.notes.forEach(n=>{
+        r=Math.max(r,n.rest?1:n.pitches.length);if(n.rest)return;
+        const ys=n.pitches.map(p=>yOf(part,p.letter,p.oct,0)),yTop=Math.min(...ys),yBot=Math.max(...ys);
+        const up=twoVoices?!part.endsWith('2'):(yTop+yBot)/2>2*S;
+        low=Math.max(low,yBot+5,up||n.kind==='w'?0:yBot+3.2*S);
+      }));
+      rows+=r;
+    });
+    lane[hd]={off:low+16,h:low+16-LH+rows*JROW};
+  });
+  const sysH=(grand?LH*2+GAP:LH)+58+lane.RH.h+lane.LH.h;
   const perSys=Math.max(1,Math.min(4,Math.floor((width-LEFT-RIGHT)/230)));
   const nSys=Math.ceil(piece.nBars/perSys);
   const H=nSys*sysH+10;
   let h='';const pos={};// id -> {x,y,part}
   const barPos=[];// bar index -> {x,w,top,bot}: the track the playhead runs along
-  const clefFor=p=>piece.handOf(p)==='RH'?'treble':'bass';
-  function staffTop(sys,part){return 30+sys*sysH+(piece.handOf(part)==='LH'&&grand?LH+GAP:0);}
-  function yOf(part,letter,oct,top){const c=CLEF[clefFor(part)];return top+(diaLO(c.topLO[0],c.topLO[1])-diaLO(letter,oct))*S/2;}
+  function staffTop(sys,part){return 30+sys*sysH+(piece.handOf(part)==='LH'&&grand?LH+GAP+lane.RH.h:0);}
+  // one column of numbers at x: highest note on top, a dot above or below per octave away from middle C's octave
+  function jpCol(x,y0,n){
+    if(n.rest)return `<text class="jp rest" x="${x}" y="${y0+14}" text-anchor="middle">0</text>`;
+    let g='';[...n.pitches].reverse().forEach((p,r)=>{
+      const j=IvoryParse.jianpu(p,piece.key.count),by=y0+14+r*JROW;
+      g+=`<text class="jp${n.tiedFrom?' tied':''}" x="${x}" y="${by}" text-anchor="middle">${j.acc?`<tspan class="jpacc" dy="-5">${j.acc==='#'?'♯':j.acc==='b'?'♭':j.acc}</tspan><tspan dy="5">${j.num}</tspan>`:j.num}</text>`;
+      for(let d=0;d<Math.abs(j.dots);d++)g+=`<circle class="jp${n.tiedFrom?' tied':''}" cx="${x+(j.acc?3:0)}" cy="${j.dots>0?by-14-d*4:by+4+d*4}" r="1.7"/>`;
+    });
+    return g;
+  }
   for(let sys=0;sys<nSys;sys++){
     const m0=sys*perSys,m1=Math.min(piece.nBars,m0+perSys);
     const first=sys===0;
@@ -596,6 +625,7 @@ function renderScore(svg,piece,width,scale=1){
             pos[id]={x,y:up?yBot:yTop,part,up,ys};
             if(n.tie){const nx=x+ (ni+1<bar.notes.length?(bar.notes[ni+1].start-n.start)/piece.beatsPerBar*inner: mw-pad-(n.start/piece.beatsPerBar)*inner+14);const ty=up?yBot+6:yTop-6;const bend=up?8:-8;g+=`<path class="tie" d="M${x+4} ${ty} q ${(nx-x-8)/2} ${bend}, ${nx-x-8} 0"/>`;}
           }
+          if(opts.jianpu){const vrows=voice2?Math.max(...piece.parts[part.slice(0,2)].map(b=>Math.max(1,...b.notes.map(q=>q.rest?1:q.pitches.length)))):0;g+=jpCol(x,top+lane[piece.handOf(part)].off+vrows*JROW,n);}
           if(n.tuplet){
             if(n.tuplet.first)tupX=x;
             if(n.tuplet.last&&tupX!=null){const ty=voice2?top+5*S+20:top-16,xm=(tupX+x)/2;g+=`<line class="ln" x1="${tupX-4}" y1="${ty}" x2="${xm-6}" y2="${ty}"/><line class="ln" x1="${xm+6}" y1="${ty}" x2="${x+8}" y2="${ty}"/><text class="txt" x="${xm}" y="${ty+4}" text-anchor="middle" font-style="italic">${n.tuplet.n}</text>`;tupX=null;}
@@ -672,7 +702,43 @@ LH: [F3 G3]/w | r/w | [F3 G3]/w | r/w
 RH: E4/q E4/q E4/h | E4/q E4/q E4/h | E4/q G4/q C4/q D4/q | E4/w
 LH: [C3 G3]/w | r/w | [C3 G3]/w | r/w
 RH: F4/q F4/q F4/q F4/q | F4/q E4/q E4/q E4/q | G4/q G4/q F4/q D4/q | C4/w
-LH: [F3 G3]/w | r/w | [F3 G3]/w | [C3 G3]/w`
+LH: [F3 G3]/w | r/w | [F3 G3]/w | [C3 G3]/w`,
+  'b:simple':`# 没那么简单 (Not That Simple), words 姚若龙, music 萧煌奇, sung by 黄小琥.
+# From a 弹指之间 guitar book, p.76-77, read from two phone photos on 2026-10-02.
+# RH is the sung melody from the numbered notation; LH is root-and-fifth from the
+# guitar chords. The book plays it in C with capo 6, so the record is in Gb.
+# Slow Rock: every beat is a triplet, so each plain eighth pair is swung as
+# 3(long/q short/e). Grace notes left out (bars 1, 2).
+# Bars 1-4 intro, 5-13 verse, 14-21 verse, 22-29 build-up, 30-38 chorus. The book
+# then repeats from bar 14 for verse 2 and goes to a coda on a page not
+# photographed, so this stops at the end of the first chorus.
+# Octaves: the print leaves dots off bars 2-3; the guitar tab puts them at C5-F5.
+# Most doubtful: the low A3/B3/G3 in bars 10-12 and 18-20 (dots under 7 only),
+# the C4 that ends bar 1, and the 16ths in bars 26, 32, 36.
+title: Not That Simple (没那么简单)
+time: 4/4
+key: C
+tempo: 50
+RH: 3(A4/q G4/e~) 3(G4/e G4/e C5/e) G4/q~ 3(G4/q C4/e) | 3(A4/q G4/e~) 3(G4/e G4/e D5/e) C5/q~ 3(C5/e D5/e E5/e) | F5/q E5/q C5/h | r/h r/q 3(r/q C5/e)
+LH: [F2 C3]/h [E2 C3]/h | [F2 C3]/h [E2 C3]/h | [Bb2 F3]/h [G2 F3]/h | [C3 G3]/h [A2 F3]/h
+RH: 3(B4/q G4/e~) 3(G4/e E4/e E4/e) D4/q G4/q
+LH: [C3 B3]/h [C3 A3]/h
+RH: 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e D4/e) 3(E4/q A4/e) | G4/q 3(E4/q D4/e) E4/h | 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e E4/e) 3(E4/e D4/e D4/e) | D4/q~ 3(D4/q E4/e) 3(F4/e E4/e D4/e~) 3(D4/q C4/e)
+LH: [C3 G3]/w | [E2 B2]/w | [A2 E3]/w | [F2 C3]/h [G2 D3]/h
+RH: C4/q~ 3(C4/e A3/q) A3/q~ 3(A3/q B3/e) | B3/q~ 3(B3/e A3/q) G3/q~ 3(G3/q E4/e) | 3(F4/q E4/e) 3(C4/q A3/e) C4/q 3(D4/q D4/e~) | D4/h. G4/q
+LH: [F2 C3]/h [F2 B2]/h | [E2 B2]/h [A2 D3]/q [A2 C#3]/q | [D2 A2]/h [C2 A2]/h | B2/q A2/q [G2 D3]/h
+RH: 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e D4/e) 3(E4/q A4/e) | G4/q 3(A4/q G4/e) 3(A4/e G4/e E4/e~) E4/q | 3(G4/e E4/e D4/e) E4/q 3(G4/e E4/e E4/e) 3(E4/e D4/e D4/e) | D4/q~ 3(D4/q E4/e) 3(F4/e E4/e D4/e~) 3(D4/q C4/e)
+LH: [C3 G3]/w | [E2 B2]/w | [A2 E3]/w | [F2 C3]/h [G2 D3]/h
+RH: C4/q~ 3(C4/e A3/q) A3/q~ 3(A3/q B3/e) | B3/q 3(B3/q A3/e) G3/q~ 3(G3/q E4/e) | 3(F4/q E4/e) 3(C4/q A3/e) 3(F4/e E4/e E4/e~) 3(E4/q C4/e~) | 3(C4/e D4/q) C4/h 3(C5/q C5/e)
+LH: [F2 C3]/h [F2 B2]/h | [E2 B2]/h [A2 E3]/h | [D2 A2]/h [G2 F3]/h | [C3 F3]/h [C3 G3]/h
+RH: 3(A4/e G4/e G4/e) 3(G4/e F4/e G4/e) G4/q~ 3(G4/e C5/e C5/e) | 3(A4/e G4/e G4/e) 3(G4/e F4/e G4/e) E4/q~ 3(E4/e E4/e F4/e) | 3(G4/e F4/e F4/e~) 3(F4/e E4/e F4/e) 3(G4/e F4/e F4/e) 3(F4/e E4/e D4/e) | E4/q 3(A4/q G4/e) 3(A4/e G4/e G4/e~) 3(G4/e B4/e C5/e)
+LH: [F2 C3]/h [E2 C3]/h | [D3 A3]/h [C3 G3]/h | [Bb2 F3]/h [F2 C3]/h | [C3 G3]/h [D3 Bb3]/q [E3 Bb3]/q
+RH: 3(A4/q G4/e) 3(G4/e G4/e F4/s G4/s) G4/q~ 3(G4/e G4/e G4/e) | 3(E5/q D5/e) 3(D5/q C5/e) 3(G4/e A4/e C5/e~) 3(C5/e G4/e A4/e) | 3(C5/e G4/e A4/e~) 3(A4/e G4/e A4/e) 3(C5/e G4/e A4/e~) 3(A4/e G4/e G4/e) | 3(E5/q E5/e) 3(E5/e E5/e F5/e) D5/q 3(E5/q E5/e)
+LH: [F2 C3]/h [E2 C3]/h | [E3 G#3]/h [A2 E3]/h | [D3 G3]/h [D3 F#3]/h | [G2 F3]/h [G2 D3]/h
+RH: 3(E5/q D5/e) 3(D5/e D5/e C5/e) E5/q 3(B4/q B4/e) | 3(C5/q C5/e) 3(D5/e D5/e E5/e) C5/q 3(E5/q E5/e) | 3(F5/q E5/e) 3(D5/e C5/e C5/e) 3(C5/s D5/s C5/e A4/e~) 3(A4/e E5/e E5/e) | 3(F5/q E5/e) 3(D5/e C5/e D5/e) D5/q 3(E5/q E5/e)
+LH: [C3 G3]/w | [A2 E3]/w | [D3 A3]/w | [Bb2 F3]/h [G2 D3]/h
+RH: 3(E5/q D5/e) 3(D5/e D5/e C5/e) E5/q 3(B4/q B4/e) | 3(C5/q C5/e) 3(D5/e D5/e E5/e) C5/q 3(E5/q E5/e) | 3(F5/q E5/e) 3(D5/e C5/e C5/e) 3(C5/s D5/s C5/e A4/e~) 3(A4/e G4/e G4/e) | 3(E5/e C5/e C5/e~) 3(C5/e G4/e G4/e) 3(E5/e C5/e C5/e) 3(C5/q B4/e~) | 3(B4/e C5/q~) C5/h.
+LH: [C3 G3]/h [E3 G#3]/h | [A2 E3]/w | [D3 A3]/w | [F3 Ab3]/h [G2 D3]/h | [F2 C3]/h [E2 C3]/h`
 };
 const pieceSel=$('piece'),notationTa=$('notation'),errsEl=$('notation-errs'),scoreSvg=$('score-svg'),scoreBox=$('score'),kbP=$('kb-p');
 let piece=null,pieceId=null,notePos={},barPos=[],playheadEl=null,practiceKbRange=null;
@@ -711,8 +777,9 @@ function layoutPractice(force){
   const locked=document.body.classList.contains('lock-scroll')&&matchMedia('(min-height: 480px)').matches;
   const room=locked?scoreBox.clientHeight-12:0,key=w+'x'+room;
   if(force||scoreSvg.dataset.w!==key){
-    scoreSvg.dataset.w=key;let r=renderScore(scoreSvg,piece,w);
-    if(room>0&&r.sysH>room){const k=Math.max(.7,room/r.sysH);r=renderScore(scoreSvg,piece,w/k,k);}
+    const ro={jianpu:showNum.checked};
+    scoreSvg.dataset.w=key;let r=renderScore(scoreSvg,piece,w,1,ro);
+    if(room>0&&r.sysH>room){const k=Math.max(.7,room/r.sysH);r=renderScore(scoreSvg,piece,w/k,k,ro);}
     notePos=r.pos;barPos=r.barPos;playheadEl=scoreSvg.querySelector('.playhead');if(transport.mode)highlight(transport.idx);
   }
   const kw=kbP.parentElement.clientWidth;if(force||!kbP.children.length||kbP.dataset.w!==String(kw)){kbP.dataset.w=kw;buildKeyboard(kbP,practiceKbRange[0],practiceKbRange[1],{names:true,onKey:practiceKey});}
@@ -746,7 +813,9 @@ $('btn-delete').addEventListener('click',()=>{
 
 // ---------- transport: listen mode and wait mode ----------
 const transport={mode:null,idx:-1,t0:0,raf:0,mist:0,need:new Set(),got:new Set(),bus:null};
-const handsSel=$('hands'),showKeys=$('showkeys'),showLine=$('showline');
+const handsSel=$('hands'),showKeys=$('showkeys'),showLine=$('showline'),showNum=$('shownum');
+showNum.checked=!!store.jianpu;
+showNum.addEventListener('change',()=>{store.jianpu=showNum.checked;save();layoutPractice(true);});
 (function(){
   const opts=$('p-opts');
   document.addEventListener('pointerdown',e=>{if(opts.open&&!opts.contains(e.target))opts.open=false;});

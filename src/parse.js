@@ -116,5 +116,20 @@ function parsePiece(text){
   return piece;
 }
 
-globalThis.IvoryParse={parsePiece,keySig,midi,SEMI,DUR,PARTS,SHARPS,FLATS,handOf,tupletRatio};
+// Numbered notation (简谱), movable do: 1 is the major tonic of the key signature
+// (a minor key reads from its relative major, so its tonic is 6), placed in
+// octave 4, so in C, 1 is middle C. dots > 0 sit above the digit, < 0 below;
+// acc is '#' or 'b' for a note outside the scale.
+const MAJOR_TONIC={0:['C',0],1:['G',0],2:['D',0],3:['A',0],4:['E',0],5:['B',0],6:['F',1],7:['C',1],
+  '-1':['F',0],'-2':['B',-1],'-3':['E',-1],'-4':['A',-1],'-5':['D',-1],'-6':['G',-1],'-7':['C',-1]};
+const LETTERS='CDEFGAB',MAJ=[0,2,4,5,7,9,11];
+function jianpu(p,keyCount){
+  const [tl,ta]=MAJOR_TONIC[keyCount]||MAJOR_TONIC[0];
+  const step=LETTERS.indexOf(p.letter)+p.oct*7-(LETTERS.indexOf(tl)+28);
+  const deg=((step%7)+7)%7,dots=Math.floor(step/7);
+  const diff=p.m-(midi(tl,4)+ta+MAJ[deg]+12*dots);
+  return {num:String(deg+1),dots,acc:diff>0?'#'.repeat(diff):diff<0?'b'.repeat(-diff):''};
+}
+
+globalThis.IvoryParse={parsePiece,keySig,midi,SEMI,DUR,PARTS,SHARPS,FLATS,handOf,tupletRatio,jianpu};
 })();

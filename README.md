@@ -49,6 +49,11 @@ are lost if you clear the browser's data for this site.
   count-in, moving line) under **Options**, so on a landscape tablet the score
   keeps both staves in view; if a line of music still doesn't fit, the score is
   drawn smaller, down to 70%, rather than cutting off the left hand.
+  **Numbers (简谱)** under Options writes the numbered notation under every
+  note, the way Chinese song books print it: 1 is the key's tonic (in C, middle
+  C), a dot above means an octave higher, a dot below an octave lower, and two
+  dots two octaves. Chords stack highest on top; a held (tied) note is shown
+  faint and a rest is 0. The choice is remembered.
 - **Progress** — accuracy per note, speed, and a run history per piece.
 - **Metronome and MIDI** in the bar along the bottom.
 - **Piano sound** is a sampled grand: the [Salamander Grand Piano](https://github.com/sfzinstruments/SalamanderGrandPiano)
