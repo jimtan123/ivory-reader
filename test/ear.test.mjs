@@ -89,7 +89,7 @@ test('each song trick opens on the interval it is filed under',()=>{
 
 test('lessons have unique ids and ask something real',()=>{
   assert.equal(new Set(LESSONS.map(l=>l.id)).size,LESSONS.length);
-  LESSONS.forEach(l=>{
+  LESSONS.filter(l=>l.kind!=='quality').forEach(l=>{
     const items=l.kind==='note'?l.notes:l.ints;
     assert.ok(items.length>=2,`${l.id} has fewer than two answers`);
     assert.deepEqual(items,[...new Set(items)].sort((a,b)=>a-b),`${l.id} is unsorted or repeats`);
@@ -117,4 +117,32 @@ test('the suggested lesson is the first without two stars',()=>{
   assert.equal(nextLesson({[LESSONS[0].id]:3,[LESSONS[1].id]:1}),1);
   const all=Object.fromEntries(LESSONS.map(l=>[l.id,2]));
   assert.equal(nextLesson(all),LESSONS.length-1);
+});
+
+const {CHORDS,SCALES,SHAPE_ROOTS,shapesOf}=globalThis.IvoryEar;
+
+test('chords and scales start on the root, climb, and scales end on the octave',()=>{
+  [...Object.values(CHORDS),...Object.values(SCALES)].forEach(c=>{
+    assert.equal(c.notes[0],0,`${c.ab} does not start on the root`);
+    c.notes.forEach((n,i)=>i&&assert.ok(n>c.notes[i-1],`${c.ab} does not climb`));
+  });
+  Object.values(SCALES).forEach(c=>assert.equal(c.notes.at(-1),12,`${c.ab} does not end on the octave`));
+  assert.deepEqual(CHORDS.maj.notes,[0,4,7]);assert.deepEqual(CHORDS.min.notes,[0,3,7]);
+});
+
+test('chord and scale lessons only offer shapes that exist, with no repeats',()=>{
+  const q=LESSONS.filter(l=>l.kind==='quality');
+  assert.ok(q.some(l=>l.group==='chord')&&q.some(l=>l.group==='scale'));
+  q.forEach(l=>{
+    assert.ok(l.opts.length>=2,`${l.id} has one answer`);
+    assert.equal(new Set(l.opts).size,l.opts.length,`${l.id} repeats an answer`);
+    l.opts.forEach(k=>assert.ok(shapesOf(l)[k],`${l.id} offers ${k}, which is not in its table`));
+    if(l.group==='chord')assert.ok(['block','broken','mixed'].includes(l.sound),`${l.id} has no sound`);
+  });
+});
+
+test('the highest root keeps every chord and scale under C6',()=>{
+  const top=(t,r)=>Math.max(...Object.values(t).map(c=>c.notes.at(-1)))+r.hi;
+  assert.ok(top(CHORDS,SHAPE_ROOTS.chord)<=84);
+  assert.ok(top(SCALES,SHAPE_ROOTS.scale)<=84);
 });

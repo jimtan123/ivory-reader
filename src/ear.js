@@ -120,6 +120,41 @@ const LESSONS=[
   {id:'i-7',kind:'interval',title:'Sevenths and the Tritone',sub:'Somewhere, and Maria.',ints:[6,10,11,12]},
   {id:'i-all',kind:'interval',check:true,title:'Every Interval',sub:'Half step to octave, all of them.',ints:[1,2,3,4,5,6,7,8,9,10,11,12]}
 ];
+// Chord and scale lessons ask what kind of sound it was, not where it sat:
+// each is played from a root that moves, so the answer is the shape, never a
+// remembered pitch. Notes are semitones above the root.
+const CHORDS={
+  maj:{ab:'Major',name:'bright',notes:[0,4,7]},
+  min:{ab:'Minor',name:'sad',notes:[0,3,7]},
+  dim:{ab:'Diminished',name:'tense',notes:[0,3,6]},
+  aug:{ab:'Augmented',name:'dreamy',notes:[0,4,8]},
+  maj7:{ab:'Major 7th',name:'soft, jazzy',notes:[0,4,7,11]},
+  dom7:{ab:'Dominant 7th',name:'bluesy, wants to move',notes:[0,4,7,10]},
+  min7:{ab:'Minor 7th',name:'mellow',notes:[0,3,7,10]}
+};
+const SCALES={
+  maj:{ab:'Major',name:'Do-Re-Mi',notes:[0,2,4,5,7,9,11,12]},
+  min:{ab:'Minor',name:'natural minor, sad',notes:[0,2,3,5,7,8,10,12]},
+  pmaj:{ab:'Major pentatonic',name:'five notes, like 茉莉花',notes:[0,2,4,7,9,12]},
+  pmin:{ab:'Minor pentatonic',name:'five notes, the rock solo',notes:[0,3,5,7,10,12]},
+  harm:{ab:'Harmonic minor',name:'the raised 7th, exotic',notes:[0,2,3,5,7,8,11,12]},
+  blues:{ab:'Blues',name:'minor pentatonic plus the blue note',notes:[0,3,5,6,7,10,12]}
+};
+// Roots for chord and scale questions, so the top note stays in the middle.
+const SHAPE_ROOTS={chord:{lo:midi('F',3),hi:midi('F',4)},scale:{lo:midi('F',3),hi:midi('C',4)}};
+LESSONS.push(
+  {id:'c-mm',kind:'quality',group:'chord',sound:'block',title:'Major or Minor',sub:'Happy or sad. Only the middle note moves.',opts:['maj','min']},
+  {id:'c-mm-b',kind:'quality',group:'chord',sound:'broken',title:'Major or Minor, Broken',sub:'The same chords, one note at a time, then together.',opts:['maj','min']},
+  {id:'c-dim',kind:'quality',group:'chord',sound:'block',title:'Diminished',sub:'Two minor thirds stacked. The horror-film chord.',opts:['maj','min','dim']},
+  {id:'c-aug',kind:'quality',group:'chord',sound:'block',title:'Augmented',sub:'Two major thirds stacked. Dreamy, never settles.',opts:['maj','min','dim','aug']},
+  {id:'c-tri',kind:'quality',group:'chord',sound:'mixed',check:true,title:'Every Triad',sub:'All four, broken or together.',opts:['maj','min','dim','aug']},
+  {id:'c-7',kind:'quality',group:'chord',sound:'broken',title:'Seventh Chords',sub:'A fourth note on top: jazz, blues and soul.',opts:['maj7','dom7','min7']},
+  {id:'s-mm',kind:'quality',group:'scale',title:'Major or Minor Scale',sub:'Do-Re-Mi, or its sad twin.',opts:['maj','min']},
+  {id:'s-pent',kind:'quality',group:'scale',title:'Pentatonic Scales',sub:'Five notes, no half steps. Most Chinese folk songs live here.',opts:['maj','min','pmaj','pmin']},
+  {id:'s-all',kind:'quality',group:'scale',check:true,title:'Every Scale',sub:'Add harmonic minor and the blues scale.',opts:['maj','min','pmaj','pmin','harm','blues']}
+);
+// The table a chord or scale lesson draws its answers from.
+const shapesOf=l=>l.group==='scale'?SCALES:CHORDS;
 const ROUND=20;
 // Stars for a finished round: 18 of 20 is three, 15 two, 12 one.
 function starsFor(ok,total){
@@ -133,5 +168,6 @@ function nextLesson(best){
 }
 
 globalThis.IvoryEar={INTERVALS,INT_SETS,RANGES,GAP_SETS,EAR_LO,EAR_HI,TRICKS,LESSONS,ROUND,
+  CHORDS,SCALES,SHAPE_ROOTS,shapesOf,
   notePool,intervalsIn,weightOf,pickWeighted,rootRange,pickRoot,gapBucket,starsFor,nextLesson};
 })();
