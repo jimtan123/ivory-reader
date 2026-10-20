@@ -81,6 +81,57 @@ function pickRoot(semis,dir,rnd){
 // you are learning there is how small a step you can still hear.
 function gapBucket(semis){return semis<=2?'close':semis<=5?'mid':'wide';}
 
-globalThis.IvoryEar={INTERVALS,INT_SETS,RANGES,GAP_SETS,EAR_LO,EAR_HI,
-  notePool,intervalsIn,weightOf,pickWeighted,rootRange,pickRoot,gapBucket};
+// A song whose opening is the interval, so the sound has something to hang on.
+// Notes are semitones from middle C; at is the note the interval starts on,
+// when a lead-in comes first.
+const TRICKS={
+  1:{song:'Jaws',notes:[0,1,0,1]},
+  2:{song:'Happy Birthday',notes:[0,0,2,0,5,4]},
+  3:{song:'Greensleeves',notes:[0,3,5,7]},
+  4:{song:'When the Saints Go Marching In',notes:[0,4,5,7]},
+  5:{song:'Here Comes the Bride',notes:[0,5,5,5]},
+  6:{song:'Maria (West Side Story)',notes:[0,6,7]},
+  7:{song:'Twinkle Twinkle Little Star',notes:[0,0,7,7]},
+  8:{song:'The Entertainer',notes:[-2,-1,0,8],at:2},
+  9:{song:'My Bonnie Lies over the Ocean',notes:[0,9,7,5,7,5]},
+  10:{song:'Somewhere (West Side Story)',notes:[0,10,9]},
+  12:{song:'Somewhere over the Rainbow',notes:[0,12,11,7,9,11,12]}
+};
+// The lesson path: one new sound at a time, the notes first and then the
+// distances between them, with a checkpoint that mixes everything so far.
+// A note lesson lists the midi notes it asks; an interval lesson lists
+// semitone distances, always played going up.
+const C4=midi('C',4),WHITE_OCT=[0,2,4,5,7,9,11,12].map(s=>C4+s);
+const LESSONS=[
+  {id:'n-cg',kind:'note',title:'C and G',sub:'Two notes a fifth apart. Start here.',notes:[C4,C4+7]},
+  {id:'n-ceg',kind:'note',title:'The Major Third',sub:'Add E. Now you have a chord.',notes:[C4,C4+4,C4+7]},
+  {id:'n-penta',kind:'note',title:'Pentatonic Start',sub:'Add D and A. No wrong notes.',notes:[C4,C4+2,C4+4,C4+7,C4+9]},
+  {id:'n-fb',kind:'note',title:'The 4th & 7th',sub:'Add F and B. The tension notes.',notes:[C4,C4+2,C4+4,C4+5,C4+7,C4+9,C4+11]},
+  {id:'n-cmaj',kind:'note',check:true,title:'Middle C Major',sub:'All white keys, middle octave.',notes:WHITE_OCT},
+  {id:'i-58',kind:'interval',title:'The Perfect 5th',sub:'Twinkle Twinkle opens on a perfect fifth.',ints:[7,12]},
+  {id:'i-4',kind:'interval',title:'The Perfect 4th',sub:'Here Comes the Bride. Easy to mix up with the fifth.',ints:[5,7,12]},
+  {id:'i-3',kind:'interval',title:'Major and Minor Thirds',sub:'When the Saints is bright; Greensleeves is sad.',ints:[3,4,5,7]},
+  {id:'i-2',kind:'interval',title:'Steps',sub:'Happy Birthday takes a whole step; Jaws takes a half.',ints:[1,2,3,4]},
+  {id:'i-mix',kind:'interval',check:true,title:'Small Intervals',sub:'Everything from a half step to the octave, but the wide ones.',ints:[1,2,3,4,5,7,12]},
+  {id:'n-fs',kind:'note',title:'F♯ (bright & tense)',sub:'The first black key, between F and G.',notes:[...WHITE_OCT,C4+6].sort((a,b)=>a-b)},
+  {id:'n-bb',kind:'note',title:'B♭ (smooth & bluesy)',sub:'The black key under B.',notes:[...WHITE_OCT,C4+6,C4+10].sort((a,b)=>a-b)},
+  {id:'n-chrom',kind:'note',check:true,title:'Every Key',sub:'Add C♯, E♭ and A♭. The whole octave.',notes:Array.from({length:13},(_,i)=>C4+i)},
+  {id:'i-6',kind:'interval',title:'Sixths',sub:'My Bonnie is major; The Entertainer is minor.',ints:[7,8,9,12]},
+  {id:'i-7',kind:'interval',title:'Sevenths and the Tritone',sub:'Somewhere, and Maria.',ints:[6,10,11,12]},
+  {id:'i-all',kind:'interval',check:true,title:'Every Interval',sub:'Half step to octave, all of them.',ints:[1,2,3,4,5,6,7,8,9,10,11,12]}
+];
+const ROUND=20;
+// Stars for a finished round: 18 of 20 is three, 15 two, 12 one.
+function starsFor(ok,total){
+  const p=total?ok/total:0;
+  return p>=0.9?3:p>=0.75?2:p>=0.6?1:0;
+}
+// The lesson to suggest: the first one without two stars yet.
+function nextLesson(best){
+  const i=LESSONS.findIndex(l=>((best||{})[l.id]||0)<2);
+  return i<0?LESSONS.length-1:i;
+}
+
+globalThis.IvoryEar={INTERVALS,INT_SETS,RANGES,GAP_SETS,EAR_LO,EAR_HI,TRICKS,LESSONS,ROUND,
+  notePool,intervalsIn,weightOf,pickWeighted,rootRange,pickRoot,gapBucket,starsFor,nextLesson};
 })();

@@ -159,6 +159,34 @@ summary{cursor:pointer;font-weight:600;font-size:15px}
 /* Two answers instead of thirteen: make them targets worth their odds. */
 .choices.two-up button{min-width:150px;padding:14px 18px}
 .choices.two-up button b{font-size:21px}
+/* Ear lessons: a numbered path, one row a lesson, checkpoints tinted. */
+.lessons{display:flex;flex-direction:column;gap:8px}
+.lessons button{display:grid;grid-template-columns:34px 1fr auto;gap:2px 12px;align-items:center;text-align:left;width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.lessons button:hover{border-color:var(--muted)}
+.lessons .dot{grid-row:span 2;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.lessons .done .dot{background:var(--good);border-color:var(--good);color:#fff}
+.lessons .t{font-weight:600;font-size:16px}
+.lessons .s{grid-column:2;font-size:13px;color:var(--muted)}
+.lessons .st{grid-row:span 2;font-size:15px;letter-spacing:1px;color:var(--line);white-space:nowrap}
+.lessons .st i{font-style:normal;color:var(--accent)}
+.lessons .check{background:var(--soft)}
+.lessons .tag{display:inline-block;margin-right:6px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lessons .next{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.lessonbar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.lessonbar b{flex:1;font-family:var(--font-display);font-size:18px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lessonbar span{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.lprog{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-bottom:10px}
+.lprog i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.tricks{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 10px}
+.tricks .lab{width:100%;text-align:center;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tricks button{font:inherit;font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.tricks button b{color:var(--accent);margin-right:4px}
+.lresult{text-align:center;padding:18px 0 8px}
+.lresult .stars{font-size:34px;letter-spacing:4px;color:var(--line)}
+.lresult .stars i{font-style:normal;color:var(--accent)}
+.lresult .score{font-family:var(--font-display);font-size:24px;font-weight:700;margin-top:4px}
+.lresult p{color:var(--muted);margin:6px 0 14px}
+.lresult .row{justify-content:center;gap:8px;flex-wrap:wrap}
 @media (max-width: 760px){
   .choices{gap:6px}
   .choices button{min-width:74px;padding:10px 6px}

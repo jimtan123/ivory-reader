@@ -85,7 +85,7 @@
 <!-- EAR -->
 <section class="panel" id="panel-ear">
   <div class="controls">
-    <label>Drill <select id="ear-drill"><option value="note" selected>Name the note</option><option value="interval">Name the interval</option><option value="hl">Higher or lower</option></select></label>
+    <label>Drill <select id="ear-drill"><option value="path" selected>Lessons</option><option value="note">Name the note</option><option value="interval">Name the interval</option><option value="hl">Higher or lower</option></select></label>
     <label id="ear-range-label">Range <select id="ear-range"><option value="five">Five keys, C to G</option><option value="oct" selected>One octave, C4 to C5</option><option value="two">Two octaves, C3 to C5</option></select></label>
     <label id="ear-keys-label">Keys <select id="ear-keys"><option value="white" selected>White keys only</option><option value="all">Every key, black ones too</option></select></label>
     <label id="ear-set-label" hidden>Intervals <select id="ear-set"><option value="fifths" selected>Fifths and octaves</option><option value="thirds">Thirds, fourths, fifths</option><option value="scale">Steps of the major scale</option><option value="all">Everything inside an octave</option></select></label>
@@ -95,7 +95,19 @@
     <label id="ear-names-label"><input type="checkbox" id="ear-names" checked> Key names</label>
     <span class="row" style="margin-left:auto"><button class="btn" id="ear-replay">Replay</button><button class="btn primary" id="ear-next">New question</button></span>
   </div>
-  <div class="card">
+  <div class="card" id="ear-pathcard" hidden>
+    <p class="muted small" style="margin:0 0 10px">Twenty questions a lesson. Two stars and you are ready for the next one; three is clean. Every lesson plays a C first, so your ear always has a place to start.</p>
+    <div class="lessons" id="ear-lessons"></div>
+  </div>
+  <div class="card" id="ear-card">
+    <div class="lessonbar" id="ear-lessonbar" hidden>
+      <button class="btn sm" id="ear-back" type="button">‹ Lessons</button>
+      <b id="ear-ltitle"></b>
+      <span id="ear-lcount">0 / 20</span>
+    </div>
+    <div class="lprog" id="ear-lprogwrap" hidden><i id="ear-lprog"></i></div>
+    <div class="tricks" id="ear-tricks" hidden></div>
+    <div class="lresult" id="ear-result" hidden></div>
     <div class="earstatus" id="ear-status">Press <b>New question</b> to hear the first one.</div>
     <div class="feedback" id="ear-feedback"><span class="hint">Nothing is drawn on a staff here. The question is a sound, and the answer is in your ear.</span></div>
     <div class="statline"><span>This session <b id="e-count">0</b></span><span>Correct <b id="e-acc">–</b></span><span>Streak <b id="e-streak">0</b></span></div>

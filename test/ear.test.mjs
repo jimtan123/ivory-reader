@@ -76,3 +76,45 @@ test('higher-or-lower gaps bucket by how hard they are to hear',()=>{
     if(key!=='mixed')gaps.forEach(g=>assert.equal(gapBucket(g),key,`${key} holds ${g}`));
   });
 });
+
+const {TRICKS,LESSONS,ROUND,starsFor,nextLesson}=globalThis.IvoryEar;
+
+test('each song trick opens on the interval it is filed under',()=>{
+  Object.entries(TRICKS).forEach(([s,t])=>{
+    const n=t.notes,i=t.at!=null?t.at+1:n.findIndex((x,k)=>k>0&&x!==n[k-1]);
+    assert.ok(i>0,`${t.song} never moves`);
+    assert.equal(n[i]-n[i-1],+s,`${t.song} opens on ${n[i]-n[i-1]}, filed under ${s}`);
+  });
+});
+
+test('lessons have unique ids and ask something real',()=>{
+  assert.equal(new Set(LESSONS.map(l=>l.id)).size,LESSONS.length);
+  LESSONS.forEach(l=>{
+    const items=l.kind==='note'?l.notes:l.ints;
+    assert.ok(items.length>=2,`${l.id} has fewer than two answers`);
+    assert.deepEqual(items,[...new Set(items)].sort((a,b)=>a-b),`${l.id} is unsorted or repeats`);
+    if(l.kind==='interval')items.forEach(s=>assert.ok(s>=1&&s<=12,`${l.id} asks ${s}`));
+    else items.forEach(m=>assert.ok(m>=60&&m<=72,`${l.id} leaves the middle octave`));
+  });
+});
+
+test('note lessons only ever add notes, never drop one',()=>{
+  const notes=LESSONS.filter(l=>l.kind==='note');
+  for(let i=1;i<notes.length;i++)
+    notes[i-1].notes.forEach(m=>assert.ok(notes[i].notes.includes(m),`${notes[i].id} drops ${m}`));
+});
+
+test('stars: 18 of 20 is three, 15 two, 12 one, less is none',()=>{
+  assert.equal(ROUND,20);
+  assert.equal(starsFor(20,20),3);assert.equal(starsFor(18,20),3);
+  assert.equal(starsFor(17,20),2);assert.equal(starsFor(15,20),2);
+  assert.equal(starsFor(12,20),1);assert.equal(starsFor(11,20),0);
+  assert.equal(starsFor(0,0),0);
+});
+
+test('the suggested lesson is the first without two stars',()=>{
+  assert.equal(nextLesson({}),0);
+  assert.equal(nextLesson({[LESSONS[0].id]:3,[LESSONS[1].id]:1}),1);
+  const all=Object.fromEntries(LESSONS.map(l=>[l.id,2]));
+  assert.equal(nextLesson(all),LESSONS.length-1);
+});

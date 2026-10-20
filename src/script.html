@@ -21,8 +21,8 @@ const CLEF={treble:{top:midi('F',5),topLO:['F',5],glyph:'\u{1D11E}',size:48,line
 
 // ---------- storage ----------
 const KEY='ivory-reader-v1';
-let store={notes:{},log:[],pieces:{},pieceStats:{},ear:{}};
-try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);if(p&&p.notes&&p.log)store=Object.assign({pieces:{},pieceStats:{},ear:{}},p);}}catch(e){}
+let store={notes:{},log:[],pieces:{},pieceStats:{},ear:{},lessons:{}};
+try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);if(p&&p.notes&&p.log)store=Object.assign({pieces:{},pieceStats:{},ear:{},lessons:{}},p);}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(store));}catch(e){}}
 
 // ---------- audio ----------
@@ -201,6 +201,7 @@ document.addEventListener('keydown',e=>{
     const L=e.key.toUpperCase();if(LETTERS.includes(L)){answerLetter(L);e.preventDefault();}
   }else if(activeTab==='hand'){if(/^[1-5]$/.test(e.key))fdAnswer(+e.key);}
   else if(activeTab==='ear'){
+    if(earDrill()==='path'||!$('ear-result').hidden)return;
     if(e.key===' '){e.preventDefault();eq?earPlay():earNext();return;}
     if(e.key==='Enter'){e.preventDefault();earNext();return;}
     if(earChoices.hidden)return;
@@ -339,14 +340,19 @@ letterBtns.forEach(b=>b.addEventListener('click',()=>{
 // reference C, or the first of two notes) and ask how far the next one sits
 // from it. Pools, weighting and the interval table are in src/ear.js.
 const {INTERVALS,INT_SETS,RANGES:EAR_RANGES,GAP_SETS,notePool,intervalsIn,
-  weightOf:earWeightOf,pickWeighted,pickRoot,gapBucket}=IvoryEar;
+  weightOf:earWeightOf,pickWeighted,pickRoot,gapBucket,
+  TRICKS,LESSONS,ROUND,starsFor,nextLesson}=IvoryEar;
 const earDrillSel=$('ear-drill'),earRangeSel=$('ear-range'),earKeysSel=$('ear-keys');
 const earSetSel=$('ear-set'),earDirSel=$('ear-dir'),earGapSel=$('ear-gap');
 const earRefChk=$('ear-ref'),earNamesChk=$('ear-names');
 const kbEar=$('kb-ear'),earFb=$('ear-feedback'),earChoices=$('ear-choices'),earStatusEl=$('ear-status'),earKbWrap=$('ear-kbwrap');
 let eq=null,earLocked=false,earTimer=null,earSayTimer=null,earKbKey=null,earLastItem=null;
 const earSession={n:0,ok:0,streak:0};
-const earDrill=()=>earDrillSel.value;
+// The lesson path drives the same three drills: a lesson is a note or interval
+// drill with its pool fixed, a reference C always on, and twenty questions.
+let earLesson=null,earRound={n:0,ok:0};
+const earDrill=()=>earDrillSel.value==='path'?(earLesson?earLesson.kind:'path'):earDrillSel.value;
+const earRefOn=()=>!!earLesson||earRefChk.checked;
 const earSay=html=>{earStatusEl.innerHTML=html;};
 function earStat(key){return store.ear[key]||{ok:0,n:0,recent:[]};}
 function earPick(items,keyOf){return pickWeighted(items,it=>earWeightOf(earStat(keyOf(it))));}
@@ -355,6 +361,7 @@ function earRecord(key,ok){
   s.n++;if(ok)s.ok++;s.recent.push(ok?1:0);if(s.recent.length>10)s.recent.shift();
   store.ear[key]=s;save();
   earSession.n++;if(ok){earSession.ok++;earSession.streak++;}else earSession.streak=0;
+  if(earLesson){earRound.n++;if(ok)earRound.ok++;earLessonBar();}
   $('e-count').textContent=earSession.n;
   $('e-acc').textContent=Math.round(100*earSession.ok/earSession.n)+'%';
   $('e-streak').textContent=earSession.streak;
@@ -365,18 +372,18 @@ function earRecord(key,ok){
 function earNewQuestion(){
   const d=earDrill();
   if(d==='note'){
-    let pool=notePool(earRangeSel.value,earKeysSel.value);
+    let pool=earLesson?earLesson.notes.slice():notePool(earRangeSel.value,earKeysSel.value);
     if(pool.length>1&&earLastItem!=null)pool=pool.filter(m=>m!==earLastItem);
     const m=earPick(pool,x=>'note:'+x);
     earLastItem=m;
-    return {drill:'note',key:'note:'+m,m,ref:EAR_RANGES[earRangeSel.value].lo};
+    return {drill:'note',key:'note:'+m,m,ref:earLesson?60:EAR_RANGES[earRangeSel.value].lo};
   }
   if(d==='interval'){
-    let set=INT_SETS[earSetSel.value];
+    let set=earLesson?earLesson.ints.slice():INT_SETS[earSetSel.value];
     if(set.length>1&&earLastItem!=null)set=set.filter(s=>s!==earLastItem);
     const s=earPick(set,x=>'int:'+x);
     earLastItem=s;
-    const dir=earDirSel.value==='mixed'?['up','down','harmonic'][Math.floor(Math.random()*3)]:earDirSel.value;
+    const dir=earLesson?'up':earDirSel.value==='mixed'?['up','down','harmonic'][Math.floor(Math.random()*3)]:earDirSel.value;
     const a=pickRoot(s,dir);
     return {drill:'interval',key:'int:'+s,s,dir,a,b:dir==='down'?a-s:a+s};
   }
@@ -389,7 +396,7 @@ function earSeq(){
   if(!eq)return [];
   if(eq.drill==='note'){
     const seq=[];let at=0;
-    if(earRefChk.checked){seq.push({m:eq.ref,at:0,dur:1});at=0.95;}
+    if(earRefOn()){seq.push({m:eq.ref,at:0,dur:1});at=0.95;}
     seq.push({m:eq.m,at,dur:1.4});
     return seq;
   }
@@ -433,8 +440,11 @@ function earFromRef(ref,m){
   return 'a '+INTERVALS[rest].name.toLowerCase()+(oct?' plus '+octs(oct):'')+' above the reference C';
 }
 function earReveal(){
-  if(eq.drill==='note')return {big:noteName(eq.m),detail:earRefChk.checked?earFromRef(eq.ref,eq.m)+'.':''};
-  if(eq.drill==='interval')return {big:INTERVALS[eq.s].name,detail:`${noteName(eq.a)} to ${noteName(eq.b)}.`};
+  if(eq.drill==='note')return {big:noteName(eq.m),detail:earRefOn()?earFromRef(eq.ref,eq.m)+'.':''};
+  if(eq.drill==='interval'){
+    const t=TRICKS[eq.s];
+    return {big:INTERVALS[eq.s].name,detail:`${noteName(eq.a)} to ${noteName(eq.b)}.`+(t?` Think: ${t.song}.`:'')};
+  }
   return {big:eq.up?'Higher':'Lower',detail:`${noteName(eq.a)} then ${noteName(eq.b)}, ${eq.g} semitone${eq.g===1?'':'s'} apart.`};
 }
 function earFinish(ok,pressed){
@@ -444,19 +454,21 @@ function earFinish(ok,pressed){
   if(ok){
     earFb.className='feedback good';
     earFb.innerHTML=`<span class="big">${r.big}</span><span class="hint">Right. ${r.detail}</span>`;
-    earSay('Next question in a moment.');
-    earTimer=setTimeout(earNext,1100);
+    earSay(earRoundDone()?'That was the last one.':'Next question in a moment.');
+    earTimer=setTimeout(earAfter,1100);
   }else{
     earFb.className='feedback bad';
     const you=pressed!=null?`You played ${noteName(pressed)}. `:'';
     earFb.innerHTML=`<span class="big">${r.big}</span><span class="hint">${you}${r.detail} Playing it again; any answer moves on.</span>`;
     earPlay();
-    earTimer=setTimeout(earNext,3600);
+    earTimer=setTimeout(earAfter,3600);
   }
 }
+const earRoundDone=()=>!!earLesson&&earRound.n>=ROUND;
+function earAfter(){if(earRoundDone())earEndRound();else earNext();}
 function earAnswerNote(m){
   if(!eq||eq.drill!=='note')return;
-  if(earLocked){if(earFb.classList.contains('bad'))earNext();return;}
+  if(earLocked){if(earFb.classList.contains('bad'))earAfter();return;}
   const ok=m===eq.m;
   keyEl(kbEar,eq.m)?.classList.add('good');
   if(!ok)keyEl(kbEar,m)?.classList.add('bad');
@@ -464,18 +476,18 @@ function earAnswerNote(m){
 }
 function earChoose(v,btn){
   if(!eq||eq.drill==='note')return;
-  if(earLocked){if(earFb.classList.contains('bad'))earNext();return;}
+  if(earLocked){if(earFb.classList.contains('bad'))earAfter();return;}
   const right=eq.drill==='interval'?String(eq.s):(eq.up?'up':'down'),ok=v===right;
   btn.classList.add(ok?'good':'bad');
   if(!ok)earChoices.querySelector(`[data-v="${right}"]`)?.classList.add('good');
   earFinish(ok,null);
 }
 function earRenderChoices(){
-  const d=earDrill(),sig=d+':'+earSetSel.value;
+  const d=earDrill(),sig=d+':'+(earLesson?earLesson.id:earSetSel.value);
   if(earChoices.dataset.sig===sig&&earChoices.children.length)return;
   earChoices.dataset.sig=sig;earChoices.innerHTML='';earChoices.classList.toggle('two-up',d==='hl');
   const items=d==='interval'
-    ?intervalsIn(earSetSel.value).map(i=>({v:String(i.s),ab:i.ab,name:i.name}))
+    ?(earLesson?earLesson.ints.map(s=>INTERVALS[s]):intervalsIn(earSetSel.value)).map(i=>({v:String(i.s),ab:i.ab,name:i.name}))
     :[{v:'up',ab:'Higher',name:'the second was higher'},{v:'down',ab:'Lower',name:'the second was lower'}];
   items.forEach(it=>{
     const b=document.createElement('button');b.type='button';b.dataset.v=it.v;
@@ -486,18 +498,26 @@ function earRenderChoices(){
 }
 // The answer keyboard starts on the C at or below the range and ends on a white key.
 function earKbRange(){
+  if(earLesson)return [60,72];
   const r=EAR_RANGES[earRangeSel.value];
   let hi=r.hi;while(isBlack(hi))hi++;
   return [r.lo-((r.lo%12)+12)%12,hi];
 }
 function layoutEar(){
-  const d=earDrill();
-  $('ear-range-label').hidden=$('ear-keys-label').hidden=$('ear-ref-label').hidden=$('ear-names-label').hidden=d!=='note';
-  $('ear-set-label').hidden=$('ear-dir-label').hidden=d!=='interval';
-  $('ear-gap-label').hidden=d!=='hl';
-  earChoices.hidden=d==='note';earKbWrap.hidden=d!=='note';
+  const d=earDrill(),free=earDrillSel.value!=='path',inResult=!$('ear-result').hidden;
+  $('ear-range-label').hidden=$('ear-keys-label').hidden=$('ear-ref-label').hidden=!free||d!=='note';
+  $('ear-names-label').hidden=d!=='note';
+  $('ear-set-label').hidden=$('ear-dir-label').hidden=!free||d!=='interval';
+  $('ear-gap-label').hidden=!free||d!=='hl';
+  $('ear-replay').hidden=$('ear-next').hidden=d==='path'||inResult;
+  $('ear-pathcard').hidden=d!=='path';$('ear-card').hidden=d==='path';
+  if(d==='path'){earRenderPath();return;}
+  ['ear-lessonbar','ear-lprogwrap'].forEach(id=>$(id).hidden=!earLesson);
+  $('ear-tricks').hidden=!earLesson||earLesson.kind!=='interval'||inResult;
+  [earStatusEl,earFb,$('e-count').closest('.statline'),$('ear-keyhint')].forEach(el=>el.hidden=inResult);
+  earChoices.hidden=d==='note'||inResult;earKbWrap.hidden=d!=='note'||inResult;
   if(d==='note'){
-    const key=earRangeSel.value+':'+earKeysSel.value+':'+earNamesChk.checked;
+    const key=(earLesson?'lesson':earRangeSel.value+':'+earKeysSel.value)+':'+earNamesChk.checked;
     if(earKbKey!==key||!kbEar.children.length){
       earKbKey=key;const [lo,hi]=earKbRange();
       buildKeyboard(kbEar,lo,hi,{names:earNamesChk.checked,onKey:earAnswerNote});
@@ -505,10 +525,81 @@ function layoutEar(){
   }else earRenderChoices();
   $('ear-sound-warn').hidden=$('sound').checked;
 }
+// ---------- the lesson path ----------
+const starRow=n=>'<i>'+'★'.repeat(n)+'</i>'+'★'.repeat(3-n);
+function earRenderPath(){
+  const best=store.lessons,nx=nextLesson(best),box=$('ear-lessons');
+  box.innerHTML='';
+  LESSONS.forEach((l,i)=>{
+    const b=document.createElement('button'),st=best[l.id]||0;b.type='button';
+    b.className=[l.check?'check':'',st>=2?'done':'',i===nx?'next':''].join(' ').trim();
+    b.innerHTML=`<span class="dot">${st>=2?'✓':l.check?'⚑':i+1}</span>`
+      +`<span class="t">${l.check?'<span class="tag">Checkpoint</span>':''}${l.title}</span>`
+      +`<span class="st" aria-label="${st} of 3 stars">${starRow(st)}</span><span class="s">${l.sub}</span>`;
+    b.addEventListener('click',()=>earStartLesson(i));
+    box.appendChild(b);
+  });
+}
+function earLessonBar(){
+  $('ear-lcount').textContent=Math.min(earRound.n+1,ROUND)+' / '+ROUND;
+  $('ear-lprog').style.width=(100*earRound.n/ROUND)+'%';
+}
+function earPlayTrick(t){
+  if(!$('sound').checked)return;
+  try{const c=audio(),t0=c.currentTime+0.08;t.notes.forEach((n,i)=>toneAt(60+n,t0+i*0.42,0.6));}catch(e){}
+}
+function earRenderTricks(){
+  const box=$('ear-tricks');box.innerHTML='<span class="lab">Remember it like this</span>';
+  earLesson.ints.forEach(s=>{
+    const t=TRICKS[s];if(!t)return;
+    const b=document.createElement('button');b.type='button';
+    b.innerHTML=`<b>▶ ${INTERVALS[s].ab}</b>${t.song}`;
+    b.addEventListener('click',()=>earPlayTrick(t));
+    box.appendChild(b);
+  });
+}
+function earStartLesson(i){
+  clearTimeout(earTimer);clearTimeout(earSayTimer);
+  earLesson=Object.assign({i},LESSONS[i]);earRound={n:0,ok:0};
+  earKbKey=null;earLastItem=null;earChoices.dataset.sig='';
+  $('ear-result').hidden=true;
+  $('ear-ltitle').textContent=(i+1)+'. '+earLesson.title;
+  earLessonBar();
+  if(earLesson.kind==='interval')earRenderTricks();
+  earNext();
+}
+function earEndRound(){
+  clearTimeout(earTimer);clearTimeout(earSayTimer);
+  const st=starsFor(earRound.ok,ROUND),id=earLesson.id;
+  store.lessons[id]=Math.max(store.lessons[id]||0,st);save();
+  const msg=st===3?'Clean. On to the next one.'
+    :st===2?'Good enough to move on. Come back for the third star.'
+    :st===1?'Getting there. One more round and it starts to stick.'
+    :'This one wants another go. Hum each note before you answer.';
+  const last=earLesson.i>=LESSONS.length-1;
+  const r=$('ear-result');
+  r.innerHTML=`<div class="stars" aria-label="${st} of 3 stars">${starRow(st)}</div>`
+    +`<div class="score">${earRound.ok} of ${ROUND}</div><p>${msg}</p>`
+    +`<div class="row"><button class="btn" type="button" data-a="again">Again</button>`
+    +(last?'':`<button class="btn${st>=2?' primary':''}" type="button" data-a="next">Next lesson</button>`)
+    +`<button class="btn" type="button" data-a="list">All lessons</button></div>`;
+  r.querySelector('[data-a="again"]').addEventListener('click',()=>earStartLesson(earLesson.i));
+  r.querySelector('[data-a="next"]')?.addEventListener('click',()=>earStartLesson(earLesson.i+1));
+  r.querySelector('[data-a="list"]').addEventListener('click',earToPath);
+  eq=null;r.hidden=false;
+  $('ear-lprog').style.width='100%';$('ear-lcount').textContent=ROUND+' / '+ROUND;
+  layoutEar();
+}
+function earToPath(){
+  clearTimeout(earTimer);clearTimeout(earSayTimer);
+  earLesson=null;eq=null;$('ear-result').hidden=true;layoutEar();
+}
+$('ear-back').addEventListener('click',earToPath);
 $('ear-next').addEventListener('click',earNext);
 $('ear-replay').addEventListener('click',()=>{if(eq)earPlay();else earNext();});
 [earDrillSel,earRangeSel,earKeysSel,earSetSel,earDirSel,earGapSel].forEach(sel=>sel.addEventListener('change',()=>{
   earKbKey=null;earLastItem=null;
+  if(sel===earDrillSel){earToPath();if(earDrillSel.value==='path')return;}
   if(eq)earNext();else layoutEar();       // no question yet: just re-dress the controls
 }));
 earNamesChk.addEventListener('change',()=>{earKbKey=null;layoutEar();});
@@ -1255,7 +1346,7 @@ function renderProgress(){
   const tb=$('piece-rows');tb.innerHTML='';
   pieceList().forEach(p=>{const s=store.pieceStats[p.id];const tr=document.createElement('tr');tr.innerHTML=`<td>${titleOf(p.text)}</td><td>${s?s.runs:0}</td><td>${s?s.last:'–'}</td><td>${s?new Date(s.at).toLocaleDateString():'–'}</td>`;tb.appendChild(tr);});
 }
-$('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress in this browser? Your saved pieces stay.'))return;store.notes={};store.log=[];store.pieceStats={};store.ear={};save();renderProgress();});
+$('reset').addEventListener('click',()=>{if(!confirm('Delete all saved progress in this browser? Your saved pieces stay.'))return;store.notes={};store.log=[];store.pieceStats={};store.ear={};store.lessons={};save();renderProgress();});
 
 // ---------- install (PWA) ----------
 (function(){
