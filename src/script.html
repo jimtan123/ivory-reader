@@ -341,7 +341,7 @@ letterBtns.forEach(b=>b.addEventListener('click',()=>{
 // from it. Pools, weighting and the interval table are in src/ear.js.
 const {INTERVALS,INT_SETS,RANGES:EAR_RANGES,GAP_SETS,notePool,intervalsIn,
   weightOf:earWeightOf,pickWeighted,pickRoot,gapBucket,
-  TRICKS,LESSONS,ROUND,starsFor,nextLesson,SHAPE_ROOTS,shapesOf}=IvoryEar;
+  TRICKS,LESSONS,ROUND,starsFor,nextLesson,SHAPE_ROOTS,shapesOf,progVoicing}=IvoryEar;
 const earDrillSel=$('ear-drill'),earRangeSel=$('ear-range'),earKeysSel=$('ear-keys');
 const earSetSel=$('ear-set'),earDirSel=$('ear-dir'),earGapSel=$('ear-gap');
 const earRefChk=$('ear-ref'),earNamesChk=$('ear-names');
@@ -394,6 +394,7 @@ function earNewQuestion(){
     earLastItem=k;
     const r=SHAPE_ROOTS[g],root=r.lo+Math.floor(Math.random()*(r.hi-r.lo+1));
     const sound=earLesson.sound==='mixed'?(Math.random()<0.5?'block':'broken'):earLesson.sound;
+    if(g==='prog')return {drill:'quality',key:g+':'+k,k,root,steps:progVoicing(root,shapesOf(earLesson)[k])};
     return {drill:'quality',key:g+':'+k,k,root,sound,notes:shapesOf(earLesson)[k].notes.map(n=>root+n)};
   }
   const g=earPick(GAP_SETS[earGapSel.value],x=>'hl:'+gapBucket(x));
@@ -409,7 +410,7 @@ function earSeq(){
     seq.push({m:eq.m,at,dur:1.4});
     return seq;
   }
-  if(eq.drill==='quality')return shapeSeq(eq.notes,eq.sound||'scale');
+  if(eq.drill==='quality')return eq.steps?progSeq(eq.steps):shapeSeq(eq.notes,eq.sound||'scale');
   if(eq.dir==='harmonic')return [{m:eq.a,at:0,dur:1.7},{m:eq.b,at:0,dur:1.7}];
   return [{m:eq.a,at:0,dur:1.1},{m:eq.b,at:0.85,dur:1.4}];
 }
@@ -419,11 +420,21 @@ function shapeSeq(ms,sound){
   if(sound==='broken'){const n=ms.length;return [...ms.map((m,i)=>({m,at:i*0.42,dur:1.2})),...ms.map(m=>({m,at:n*0.42+0.25,dur:1.8}))];}
   return ms.map((m,i)=>({m,at:i*0.3,dur:i===ms.length-1?1.2:0.45}));
 }
+// A progression: each chord, bass and hand together, held a little under a second.
+function progSeq(steps){
+  const seq=[];
+  steps.forEach((c,i)=>{const at=i*0.95,dur=i===steps.length-1?1.8:1.0;[c.bass,...c.upper].forEach(m=>seq.push({m,at,dur}));});
+  return seq;
+}
+// A chord's name from its root and quality, as a lead sheet writes it: C, Am, G7.
+const CHORD_SUFFIX={maj:'',min:'m',dim:'dim',aug:'aug',maj7:'maj7',dom7:'7',min7:'m7'};
+const pcName=m=>noteName(m).replace(/-?\d+$/,'');
+function progNames(key,prog){return prog.chords.map(([r,q])=>pcName(key+r)+CHORD_SUFFIX[q]).join(' ');}
 function earPrompt(){
   return eq==null?'Press <b>New question</b> to hear one.'
     :eq.drill==='note'?'Tap the key you heard.'
     :eq.drill==='interval'?'How far apart were the two notes?'
-    :eq.drill==='quality'?(earLesson.group==='scale'?'Which scale was that?':'What kind of chord was that?')
+    :eq.drill==='quality'?({scale:'Which scale was that?',prog:'Which progression was that?'}[earLesson.group]||'What kind of chord was that?')
     :'Was the second note higher or lower?';
 }
 function earPlay(){
@@ -463,7 +474,8 @@ function earReveal(){
     return {big:INTERVALS[eq.s].name,detail:`${noteName(eq.a)} to ${noteName(eq.b)}.`+(t?` Think: ${t.song}.`:'')};
   }
   if(eq.drill==='quality'){
-    const c=shapesOf(earLesson)[eq.k];
+    const c=shapesOf(earLesson)[eq.k],cap=c.name[0].toUpperCase()+c.name.slice(1);
+    if(eq.steps)return {big:c.ab,detail:`${cap}. In ${pcName(eq.root)}: ${progNames(eq.root,c)}.`};
     return {big:c.ab,detail:`${c.name[0].toUpperCase()+c.name.slice(1)}. On ${noteName(eq.root)}: ${eq.notes.map(noteName).join(' ')}.`};
   }
   return {big:eq.up?'Higher':'Lower',detail:`${noteName(eq.a)} then ${noteName(eq.b)}, ${eq.g} semitone${eq.g===1?'':'s'} apart.`};
@@ -580,7 +592,8 @@ function earRenderTricks(){
     earLesson.opts.forEach(k=>{
       const b=document.createElement('button');b.type='button';
       b.innerHTML=`<b>▶ ${t[k].ab}</b>${t[k].name}`;
-      b.addEventListener('click',()=>earPlaySeq(shapeSeq(t[k].notes.map(n=>60+n),g==='scale'?'scale':earLesson.sound==='block'?'block':'broken')));
+      b.addEventListener('click',()=>earPlaySeq(g==='prog'?progSeq(progVoicing(60,t[k]))
+        :shapeSeq(t[k].notes.map(n=>60+n),g==='scale'?'scale':earLesson.sound==='block'?'block':'broken')));
       box.appendChild(b);
     });
     return;

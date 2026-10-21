@@ -140,8 +140,27 @@ const SCALES={
   harm:{ab:'Harmonic minor',name:'the raised 7th, exotic',notes:[0,2,3,5,7,8,11,12]},
   blues:{ab:'Blues',name:'minor pentatonic plus the blue note',notes:[0,3,5,6,7,10,12]}
 };
-// Roots for chord and scale questions, so the top note stays in the middle.
-const SHAPE_ROOTS={chord:{lo:midi('F',3),hi:midi('F',4)},scale:{lo:midi('F',3),hi:midi('C',4)}};
+// Progressions: each chord is [semitones above the key, a CHORDS entry].
+const PROGS={
+  pop:{ab:'I–V–vi–IV',name:'the pop four, Let It Be',chords:[[0,'maj'],[7,'maj'],[9,'min'],[5,'maj']]},
+  hymn:{ab:'I–IV–V–I',name:'the hymn: home, away, home',chords:[[0,'maj'],[5,'maj'],[7,'maj'],[0,'maj']]},
+  fifties:{ab:'I–vi–IV–V',name:'the fifties, Stand By Me',chords:[[0,'maj'],[9,'min'],[5,'maj'],[7,'maj']]},
+  jazz:{ab:'ii–V–I',name:'the jazz cadence',chords:[[2,'min7'],[7,'dom7'],[0,'maj7']]},
+  canon:{ab:'Canon',name:'I–V–vi–iii–IV–I–IV–V, Pachelbel',chords:[[0,'maj'],[7,'maj'],[9,'min'],[4,'min'],[5,'maj'],[0,'maj'],[5,'maj'],[7,'maj']]},
+  epic:{ab:'i–VI–III–VII',name:'the epic minor',chords:[[0,'min'],[8,'maj'],[3,'maj'],[10,'maj']]},
+  blues:{ab:'Blues',name:'I7–IV7–I7–V7–IV7–I7, the turnaround',chords:[[0,'dom7'],[5,'dom7'],[0,'dom7'],[7,'dom7'],[5,'dom7'],[0,'dom7']]}
+};
+// How a progression is played in a key: the chord's root in the bass, an
+// octave below the key, and its other notes folded into the octave above the
+// key, so the hand barely moves from chord to chord the way a pianist plays it.
+function progVoicing(key,prog){
+  return prog.chords.map(([r,q])=>({
+    bass:key-12+r,
+    upper:CHORDS[q].notes.map(n=>key+(r+n)%12).sort((a,b)=>a-b)
+  }));
+}
+// Roots for chord, scale and progression questions, so the top note stays in the middle.
+const SHAPE_ROOTS={chord:{lo:midi('F',3),hi:midi('F',4)},scale:{lo:midi('F',3),hi:midi('C',4)},prog:{lo:midi('G',3),hi:midi('D',4)}};
 LESSONS.push(
   {id:'c-mm',kind:'quality',group:'chord',sound:'block',title:'Major or Minor',sub:'Happy or sad. Only the middle note moves.',opts:['maj','min']},
   {id:'c-mm-b',kind:'quality',group:'chord',sound:'broken',title:'Major or Minor, Broken',sub:'The same chords, one note at a time, then together.',opts:['maj','min']},
@@ -153,8 +172,15 @@ LESSONS.push(
   {id:'s-pent',kind:'quality',group:'scale',title:'Pentatonic Scales',sub:'Five notes, no half steps. Most Chinese folk songs live here.',opts:['maj','min','pmaj','pmin']},
   {id:'s-all',kind:'quality',group:'scale',check:true,title:'Every Scale',sub:'Add harmonic minor and the blues scale.',opts:['maj','min','pmaj','pmin','harm','blues']}
 );
-// The table a chord or scale lesson draws its answers from.
-const shapesOf=l=>l.group==='scale'?SCALES:CHORDS;
+LESSONS.push(
+  {id:'p-pop',kind:'quality',group:'prog',title:'Pop or Hymn',sub:'The four chords in half the songs on the radio, against the oldest ending in music.',opts:['pop','hymn']},
+  {id:'p-50',kind:'quality',group:'prog',title:'The Fifties',sub:'Stand By Me: the sad chord comes second, not third.',opts:['pop','hymn','fifties']},
+  {id:'p-jazz',kind:'quality',group:'prog',title:'ii–V–I',sub:'Three seventh chords that every jazz tune leans on.',opts:['pop','hymn','fifties','jazz']},
+  {id:'p-minor',kind:'quality',group:'prog',title:'Canon and the Minor Key',sub:'Pachelbel walks down; the epic minor starts sad and lifts.',opts:['pop','fifties','canon','epic']},
+  {id:'p-all',kind:'quality',group:'prog',check:true,title:'Every Progression',sub:'Add the blues turnaround.',opts:['pop','hymn','fifties','jazz','canon','epic','blues']}
+);
+// The table a chord, scale or progression lesson draws its answers from.
+const shapesOf=l=>l.group==='scale'?SCALES:l.group==='prog'?PROGS:CHORDS;
 const ROUND=20;
 // Stars for a finished round: 18 of 20 is three, 15 two, 12 one.
 function starsFor(ok,total){
@@ -168,6 +194,6 @@ function nextLesson(best){
 }
 
 globalThis.IvoryEar={INTERVALS,INT_SETS,RANGES,GAP_SETS,EAR_LO,EAR_HI,TRICKS,LESSONS,ROUND,
-  CHORDS,SCALES,SHAPE_ROOTS,shapesOf,
+  CHORDS,SCALES,PROGS,SHAPE_ROOTS,shapesOf,progVoicing,
   notePool,intervalsIn,weightOf,pickWeighted,rootRange,pickRoot,gapBucket,starsFor,nextLesson};
 })();

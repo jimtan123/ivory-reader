@@ -146,3 +146,29 @@ test('the highest root keeps every chord and scale under C6',()=>{
   assert.ok(top(CHORDS,SHAPE_ROOTS.chord)<=84);
   assert.ok(top(SCALES,SHAPE_ROOTS.scale)<=84);
 });
+
+const {PROGS,progVoicing}=globalThis.IvoryEar;
+
+test('progressions are built from real chords on real scale degrees',()=>{
+  Object.entries(PROGS).forEach(([k,p])=>{
+    assert.ok(p.chords.length>=3,`${k} is too short`);
+    p.chords.forEach(([r,q])=>{
+      assert.ok(r>=0&&r<12,`${k} has a root of ${r}`);
+      assert.ok(CHORDS[q],`${k} uses ${q}, which is not a chord`);
+    });
+  });
+  // No two progressions in the same lesson may sound identical.
+  const sig=k=>PROGS[k].chords.map(c=>c.join('')).join('|');
+  LESSONS.filter(l=>l.group==='prog').forEach(l=>
+    assert.equal(new Set(l.opts.map(sig)).size,l.opts.length,`${l.id} has two identical progressions`));
+});
+
+test('a voiced progression keeps the bass below the hand and the hand in one octave',()=>{
+  const v=progVoicing(60,PROGS.pop);
+  assert.deepEqual(v.map(c=>c.bass),[48,55,57,53]);          // C G A F
+  assert.deepEqual(v[0].upper,[60,64,67]);                    // C E G
+  assert.deepEqual(v[1].upper,[62,67,71]);                    // G chord folded: D G B
+  Object.values(PROGS).forEach(p=>progVoicing(SHAPE_ROOTS.prog.hi,p).forEach(c=>{
+    c.upper.forEach(m=>assert.ok(m>c.bass&&m<SHAPE_ROOTS.prog.hi+12&&m<=84));
+  }));
+});
